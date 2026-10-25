@@ -1,6 +1,6 @@
-# Local build products and release artifacts
-addons/*/build/build-output/
-addons/*/build-output/
-dist/
-__pycache__/
-.DS_Store
+/dist/
+/addons/airplay/bin/shairport-sync
+/addons/airplay/bin/nqptp
+/addons/airplay/lib/libplist-2.0.so*
+/addons/airplay/debs/*.deb
+/addons/airplay/build/build-output/
