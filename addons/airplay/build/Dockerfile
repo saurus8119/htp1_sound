@@ -12,56 +12,25 @@ RUN printf '%s\n' \
       > /etc/apt/apt.conf.d/99archive \
  && apt-get -o Acquire::Check-Valid-Until=false update \
  && apt-get install -y --no-install-recommends \
-      ca-certificates \
-      curl \
-      xz-utils \
-      tar \
-      gzip \
-      make \
-      gcc \
-      g++ \
-      cmake \
-      pkg-config \
-      autoconf \
-      automake \
-      libtool \
-      m4 \
-      dpkg-dev \
-      file \
-      binutils \
-      patchelf \
-      xmltoman \
-      vim-common \
-      libsodium-dev \
-      uuid-dev \
-      libavutil-dev \
-      libavcodec-dev \
-      libavformat-dev \
-      libswresample-dev \
-      libdaemon-dev \
-      libsoxr-dev \
-      libplist-utils \
-      libasound2-dev \
-      libavahi-client-dev \
-      libssl-dev \
-      libconfig-dev \
-      libpopt-dev \
-      libgcrypt20-dev \
-      libxml2-dev \
+      ca-certificates curl xz-utils tar gzip make gcc g++ cmake \
+      pkg-config autoconf automake libtool m4 dpkg-dev file binutils \
+      patchelf xmltoman vim-common libsodium-dev uuid-dev \
+      libavutil-dev libavcodec-dev libavformat-dev libswresample-dev \
+      libdaemon-dev libsoxr-dev libplist-utils libasound2-dev \
+      libavahi-client-dev libssl-dev libconfig-dev libpopt-dev \
+      libgcrypt20-dev libxml2-dev \
  && command -v xxd \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /build
 
 COPY build-target.sh /usr/local/bin/build-target
+COPY uuid-generate-sha1-compat.c /usr/local/src/uuid-generate-sha1-compat.c
 
 RUN sed -i 's/\r$//' /usr/local/bin/build-target \
  && chmod +x /usr/local/bin/build-target
 
-CMD ["/usr/local/bin/build-target"]
-
-# Runtime packages are shipped in the addon because the HTP-1's Stretch apt sources
-# are no longer usable. This image is built for linux/arm/v7, so apt downloads armhf.
+# Runtime packages are downloaded for the ARMv7 target.
 RUN apt-get -o Acquire::Check-Valid-Until=false update \
  && mkdir -p /opt/htp1-debs \
  && cd /opt/htp1-debs \
@@ -69,3 +38,5 @@ RUN apt-get -o Acquire::Check-Valid-Until=false update \
  && dpkg-deb -f avahi-daemon_*.deb Package Architecture \
  && dpkg-deb -f libavahi-core7_*.deb Package Architecture \
  && rm -rf /var/lib/apt/lists/*
+
+CMD ["/usr/local/bin/build-target"]
