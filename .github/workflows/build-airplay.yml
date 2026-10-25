@@ -1,3 +1,4 @@
+
 name: Build HTP-1 AirPlay addon
 
 on:
@@ -13,6 +14,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-24.04
+
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -25,7 +27,7 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build ARMv7 binaries in Debian 9 userspace
+      - name: Compile for ARMv7 / Debian 9 baseline
         shell: bash
         run: |
           set -euo pipefail
@@ -36,61 +38,106 @@ jobs:
             --entrypoint /bin/sh \
             -v "$RUNNER_TEMP/airplay-out:/out" \
             -v "$RUNNER_TEMP/airplay-out/work:/work" \
-            htp1-airplay-build -c 'exec /usr/local/bin/build-target'
+            htp1-airplay-build \
+            -c 'exec /usr/local/bin/build-target'
 
-      - name: Package installable addon and separate diagnostics
+      - name: Assemble and validate addon archive
         shell: bash
         run: |
           set -euo pipefail
-          OUT="$RUNNER_TEMP/airplay-out"
+
           VERSION="$(jq -r '.version' addons/airplay/addon.json)"
+          STAGE="$RUNNER_TEMP/package-stage"
+          DIAGNOSTICS="$RUNNER_TEMP/airplay-diagnostics"
 
-          install -m 0755 "$OUT/shairport-sync" addons/airplay/bin/shairport-sync
-          install -m 0755 "$OUT/nqptp" addons/airplay/bin/nqptp
-          rm -rf addons/airplay/lib addons/airplay/debs
-          cp -a "$OUT/lib" addons/airplay/lib
-          cp -a "$OUT/debs" addons/airplay/debs
-          chmod 0755 addons/airplay/bin/* addons/airplay/hooks/*
+          mkdir -p \
+            "$STAGE/airplay/bin" \
+            "$STAGE/airplay/lib" \
+            "$DIAGNOSTICS" \
+            dist
 
-          mkdir -p "$RUNNER_TEMP/package-out" "$RUNNER_TEMP/package-artifact" "$RUNNER_TEMP/diagnostics"
-          bash tools/pack.sh airplay "$RUNNER_TEMP/package-out"
-          ARCHIVE="$RUNNER_TEMP/package-out/htp1-addon-airplay-${VERSION}.tar.gz"
-          LIST="$RUNNER_TEMP/archive-list.txt"
-          tar -tzf "$ARCHIVE" > "$LIST"
-          grep -Fxq 'airplay/addon.json' "$LIST"
-          grep -Fxq 'airplay/bin/shairport-sync' "$LIST"
-          grep -Fxq 'airplay/bin/nqptp' "$LIST"
-          grep -Fxq 'airplay/etc/shairport-sync.conf' "$LIST"
-          grep -Fxq 'airplay/units/airplay.service' "$LIST"
-          grep -Fxq 'airplay/units/nqptp.service' "$LIST"
-          grep -Fxq 'airplay/units/avahi-daemon.service.d/htp1.conf' "$LIST"
-          grep -q '^airplay/' "$LIST"
-          if grep -qE '(^/|(^|/)\.\./|/build/)' "$LIST"; then
-            echo "Unexpected path in addon archive" >&2
+          cp addons/airplay/addon.json "$STAGE/airplay/"
+          cp -a addons/airplay/etc addons/airplay/units "$STAGE/airplay/"
+          cp addons/airplay/bin/start addons/airplay/bin/volume
+
+          install -m 0755 \
+            "$RUNNER_TEMP/airplay-out/shairport-sync" \
+            "$STAGE/airplay/bin/shairport-sync"
+
+          install -m 0755 \
+            "$RUNNER_TEMP/airplay-out/nqptp" \
+            "$STAGE/airplay/bin/nqptp"
+
+          cp -a "$RUNNER_TEMP/airplay-out/lib/." "$STAGE/airplay/lib/"
+
+          chmod 0755 \
+            "$STAGE/airplay/bin/start" \
+            "$STAGE/airplay/bin/volume"
+
+          # Keep diagnostics separate from the installable addon.
+          cp "$RUNNER_TEMP/airplay-out/BUILD-REPORT.txt" "$DIAGNOSTICS/"
+
+          find "$RUNNER_TEMP/airplay-out" -maxdepth 1 -type f \
+            \( -name '*-report.txt' \
+            -o -name '*-ldd.txt' \
+            -o -name '*-version.txt' \
+            -o -name '*-file.txt' \) \
+            -exec cp {} "$DIAGNOSTICS/" \;
+
+          ARCHIVE="dist/htp1-addon-airplay-${VERSION}.tar.gz"
+          CHECKSUM="${ARCHIVE}.sha256"
+
+          tar -czf "$ARCHIVE" -C "$STAGE" airplay
+
+          ARCHIVE_LIST="$RUNNER_TEMP/airplay-archive-list.txt"
+          tar -tzf "$ARCHIVE" > "$ARCHIVE_LIST"
+
+          grep -Fxq 'airplay/addon.json' "$ARCHIVE_LIST"
+          grep -Fxq 'airplay/bin/shairport-sync' "$ARCHIVE_LIST"
+          grep -Fxq 'airplay/bin/nqptp' "$ARCHIVE_LIST"
+          grep -Fxq 'airplay/units/airplay.service' "$ARCHIVE_LIST"
+          grep -Fxq 'airplay/units/nqptp.service' "$ARCHIVE_LIST"
+
+          if grep -q '/build/' "$ARCHIVE_LIST"; then
+            echo "Archive contains an unexpected build path" >&2
             exit 1
           fi
 
-          # This artifact contains ONLY what the HTP-1 release needs, not reports.
-          cp "$ARCHIVE" "$ARCHIVE.sha256" "$RUNNER_TEMP/package-artifact/"
-          # Diagnostics are deliberately a separate artifact.
-          cp "$OUT/BUILD-REPORT.txt" "$OUT/"*-report.txt "$OUT/"*-ldd.txt \
-             "$OUT/"*-version.txt "$OUT/"*-file.txt \
-             "$RUNNER_TEMP/diagnostics/" 2>/dev/null || true
-          echo "Created installable package: $ARCHIVE"
+          # Store a checksum that works alongside the downloaded archive.
+          (
+            cd dist
+            sha256sum "$(basename "$ARCHIVE")" \
+              > "$(basename "$CHECKSUM")"
+          )
 
-      - name: Upload installable package only
+          # Verify checksum and package layout before uploading.
+          (
+            cd dist
+            sha256sum --check "$(basename "$CHECKSUM")"
+          )
+
+          echo "Installable addon: $ARCHIVE"
+          echo "Checksum file: $CHECKSUM"
+          ls -l "$ARCHIVE" "$CHECKSUM"
+
+      # The package artifact contains ONLY the installable archive
+      # and its matching checksum file.
+      - name: Upload installable addon
         uses: actions/upload-artifact@v4
         with:
           name: htp1-airplay-package
-          path: ${{ runner.temp }}/package-artifact/*
+          path: |
+            dist/htp1-addon-airplay-*.tar.gz
+            dist/htp1-addon-airplay-*.tar.gz.sha256
           if-no-files-found: error
           retention-days: 30
 
-      - name: Upload build diagnostics separately
+      # Diagnostic reports are available separately.
+      - name: Upload build diagnostics
         uses: actions/upload-artifact@v4
         with:
           name: htp1-airplay-diagnostics
-          path: ${{ runner.temp }}/diagnostics/*
+          path: ${{ runner.temp }}/airplay-diagnostics/
           if-no-files-found: error
           retention-days: 30
 
@@ -98,56 +145,130 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: build
     runs-on: ubuntu-24.04
+
     steps:
       - name: Check out tagged source
         uses: actions/checkout@v4
 
-      - name: Download installable package artifact
+      - name: Download installable addon
         uses: actions/download-artifact@v4
         with:
           name: htp1-airplay-package
-          path: ${{ runner.temp }}/release-package
+          path: dist
 
       - name: Verify tag matches addon version
         id: version
         shell: bash
         run: |
           set -euo pipefail
+
           VERSION="$(jq -r '.version' addons/airplay/addon.json)"
-          test "$GITHUB_REF_NAME" = "v$VERSION" || {
-            echo "Tag $GITHUB_REF_NAME must match addon.json version v$VERSION" >&2
+          TAG="${GITHUB_REF_NAME}"
+
+          test "$TAG" = "v$VERSION" || {
+            echo "Tag $TAG must match addon.json version v$VERSION" >&2
             exit 1
           }
+
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Create GitHub Release with clean package assets
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Verify release package and checksum
         shell: bash
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
-          VERSION="${{ steps.version.outputs.version }}"
-          gh release create "$GITHUB_REF_NAME" \
-            "$RUNNER_TEMP/release-package/htp1-addon-airplay-${VERSION}.tar.gz" \
-            "$RUNNER_TEMP/release-package/htp1-addon-airplay-${VERSION}.tar.gz.sha256" \
-            --title "HTP-1 AirPlay ${VERSION}" \
-            --notes "Installable HTP-1 AirPlay 2 addon. Build diagnostics are published separately as a GitHub Actions artifact. Hardware playback still requires validation on the target unit."
 
-      - name: Update catalog after release exists
+          ARCHIVE="htp1-addon-airplay-${VERSION}.tar.gz"
+          CHECKSUM="${ARCHIVE}.sha256"
+
+          test -f "dist/$ARCHIVE"
+          test -f "dist/$CHECKSUM"
+
+          (
+            cd dist
+            sha256sum --check "$CHECKSUM"
+          )
+
+          # Ensure the release artifact contains the expected top-level folder.
+          tar -tzf "dist/$ARCHIVE" | grep -Fxq 'airplay/addon.json'
+
+          # Reject unexpected extra files in the package artifact.
+          find dist -maxdepth 1 -type f \
+            ! -name "$ARCHIVE" \
+            ! -name "$CHECKSUM" \
+            -print -quit | grep -q . && {
+              echo "Unexpected files found in release package artifact" >&2
+              exit 1
+            } || true
+
+      - name: Create GitHub release and upload package
         env:
           GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
         shell: bash
         run: |
           set -euo pipefail
+
+          ARCHIVE="dist/htp1-addon-airplay-${VERSION}.tar.gz"
+          CHECKSUM="${ARCHIVE}.sha256"
+
+          gh release create "$GITHUB_REF_NAME" \
+            "$ARCHIVE" \
+            "$CHECKSUM" \
+            --title "HTP-1 AirPlay ${VERSION}" \
+            --notes "Automated ARMv7 build. Download the .tar.gz addon asset and its matching .tar.gz.sha256 checksum. Build diagnostics are published separately as a GitHub Actions artifact. CI does not establish compatibility on physical HTP-1 hardware."
+
+      - name: Update catalog on main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ARCHIVE="dist/htp1-addon-airplay-${VERSION}.tar.gz"
+          SHA="$(sha256sum "$ARCHIVE" | awk '{print $1}')"
+          SIZE="$(stat -c '%s' "$ARCHIVE")"
+
+          URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/htp1-addon-airplay-${VERSION}.tar.gz"
+          UPDATED="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+
           git fetch origin main
           git checkout -B main origin/main
-          mkdir -p dist
-          cp "$RUNNER_TEMP/release-package/"* dist/
-          bash tools/index.sh "$GITHUB_REF_NAME" dist
+
+          jq \
+            --arg updated "$UPDATED" \
+            --arg id "airplay" \
+            --arg version "$VERSION" \
+            --arg url "$URL" \
+            --arg sha256 "$SHA" \
+            --argjson size "$SIZE" \
+            --arg label "AirPlay" \
+            --arg summary "AirPlay receiver built from Shairport Sync and NQPTP" \
+            '.name = "htp1-sound" |
+             .updated = $updated |
+             .addons = ([.addons[]? | select(.id != $id)] +
+             [{
+               id: $id,
+               version: $version,
+               label: $label,
+               summary: $summary,
+               requires: {capabilities: ["source/1"]},
+               url: $url,
+               sha256: $sha256,
+               size: $size
+             }])' \
+            index.json > index.json.tmp
+
+          mv index.json.tmp index.json
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
           git add index.json
+
           if ! git diff --cached --quiet; then
-            git commit -m "Publish AirPlay addon $GITHUB_REF_NAME in catalog"
+            git commit -m "Publish AirPlay addon ${VERSION} in catalog"
             git push origin main
           fi
