@@ -1,0 +1,4 @@
+#!/bin/sh
+# Called synchronously by Shairport Sync before playback starts.
+set -eu
+exec /opt/olympia/addon-source start airplay
