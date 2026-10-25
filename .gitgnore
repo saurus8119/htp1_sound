@@ -1,0 +1,6 @@
+# Local build products and release artifacts
+addons/*/build/build-output/
+addons/*/build-output/
+dist/
+__pycache__/
+.DS_Store
