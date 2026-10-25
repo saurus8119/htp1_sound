@@ -1,116 +1,85 @@
 
-name: Build HTP-1 AirPlay addon
+name: Build AirPlay Add-on
 
 on:
   push:
-    branches: [main, master]
-    tags: ['v*']
+    branches:
+      - main
   pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
-    runs-on: ubuntu-24.04
+    name: Build and package AirPlay
+    runs-on: ubuntu-latest
+
     steps:
-      - name: Check out source
+      - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Enable ARM emulation
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: arm
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            autoconf \
+            automake \
+            libtool \
+            pkg-config \
+            git \
+            jq \
+            tar \
+            gzip \
+            file
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Show repository files
+        run: |
+          echo "Repository root:"
+          pwd
+          echo "Packager:"
+          ls -l tools/pack.sh
+          echo "Add-on files:"
+          find addons/airplay -maxdepth 3 -type f -print | sort
 
-      - name: Compile for ARMv7 / Debian 9 baseline
-        shell: bash
+      - name: Check shell syntax
+        run: |
+          bash -n tools/pack.sh
+
+      - name: Validate add-on manifest
+        run: |
+          jq -e '.id == "airplay" and (.version | type == "string")' \
+            addons/airplay/addon.json
+
+      - name: Build AirPlay binaries
+        run: |
+          echo "Checking for the AirPlay build script..."
+          if [ -x tools/build-airplay.sh ]; then
+            bash tools/build-airplay.sh
+          elif [ -f tools/build-airplay.sh ]; then
+            bash tools/build-airplay.sh
+          else
+            echo "ERROR: tools/build-airplay.sh was not found."
+            echo "The workflow needs the repository's actual AirPlay build procedure."
+            exit 1
+          fi
+
+      - name: Package add-on
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/airplay-out/work"
-          docker buildx build --platform linux/arm/v7 --load \
-            -t htp1-airplay-build ./addons/airplay/build
-          docker run --rm --platform linux/arm/v7 \
-            --entrypoint /bin/sh \
-            -v "$RUNNER_TEMP/airplay-out:/out" \
-            -v "$RUNNER_TEMP/airplay-out/work:/work" \
-            htp1-airplay-build \
-            -c 'exec /usr/local/bin/build-target'
+          mkdir -p dist
+          BUILD_OUTPUT="$RUNNER_TEMP/airplay-out" \
+            bash tools/pack.sh airplay
+          test -d dist
+          find dist -maxdepth 1 -type f -print
 
-      - name: Package with the repository packager
-        shell: bash
-        run: |
-          set -euo pipefail
-          BUILD_OUTPUT="$RUNNER_TEMP/airplay-out" tools/pack.sh airplay
-          cp "$RUNNER_TEMP/airplay-out/BUILD-REPORT.txt" dist/
-          cp "$RUNNER_TEMP/airplay-out/"*-report.txt "$RUNNER_TEMP/airplay-out/"*-ldd.txt "$RUNNER_TEMP/airplay-out/"*-version.txt "$RUNNER_TEMP/airplay-out/"*-file.txt dist/ 2>/dev/null || true
-          echo "Package created using tools/pack.sh"
-
-      - name: Upload build artifact
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: htp1-airplay-package
-          path: dist/
+          name: htp1-airplay-build
+          path: dist/*
           if-no-files-found: error
-          retention-days: 30
-
-  publish:
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: build
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Check out tagged source
-        uses: actions/checkout@v4
-
-      - name: Download built package
-        uses: actions/download-artifact@v4
-        with:
-          name: htp1-airplay-package
-          path: dist
-
-      - name: Verify tag matches addon version
-        id: version
-        shell: bash
-        run: |
-          set -euo pipefail
-          VERSION="$(jq -r '.version' addons/airplay/addon.json)"
-          TAG="${GITHUB_REF_NAME}"
-          test "$TAG" = "v$VERSION" || { echo "Tag $TAG must match addon.json version v$VERSION" >&2; exit 1; }
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-
-      - name: Create GitHub release and upload package
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          gh release create "$GITHUB_REF_NAME" \
-            "dist/htp1-addon-airplay-${{ steps.version.outputs.version }}.tar.gz" \
-            "dist/SHA256SUMS" \
-            dist/BUILD-REPORT.txt \
-            dist/*-report.txt dist/*-ldd.txt dist/*-version.txt dist/*-file.txt \
-            --title "HTP-1 AirPlay ${{ steps.version.outputs.version }}" \
-            --notes "Automated ARMv7 build. Review the attached build report and diagnostics. CI does not establish compatibility on physical HTP-1 hardware."
-
-      - name: Update catalog on main
-        env:
-          GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ steps.version.outputs.version }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          # Generate index from the tagged manifest and exact archive/checksum.
-          tools/index.sh "$GITHUB_REF_NAME"
-          cp index.json "$RUNNER_TEMP/index.json.generated"
-          git fetch origin main
-          git checkout -B main origin/main
-          cp "$RUNNER_TEMP/index.json.generated" index.json
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add index.json
-          if ! git diff --cached --quiet; then
-            git commit -m "Publish AirPlay addon ${VERSION} in catalog"
-            git push origin main
-          fi
