@@ -18,7 +18,7 @@ fetch() {
   [ -s "$file" ] || curl -fL --retry 3 --connect-timeout 20 "$url" -o "$file"
 }
 
-# Pinned source versions.
+# Download pinned source versions.
 fetch "https://github.com/mikebrady/shairport-sync/archive/refs/tags/${SHAIRPORT_VERSION}.tar.gz" "shairport-sync-${SHAIRPORT_VERSION}.tar.gz"
 fetch "https://github.com/mikebrady/nqptp/archive/refs/tags/${NQPTP_VERSION}.tar.gz" "nqptp-${NQPTP_VERSION}.tar.gz"
 fetch "https://github.com/libimobiledevice/libplist/archive/refs/tags/${LIBPLIST_VERSION}.tar.gz" "libplist-${LIBPLIST_VERSION}.tar.gz"
@@ -53,18 +53,18 @@ autoreconf -fi
 make -j2
 DESTDIR="$WORK/stage-nqptp" make install
 
-# Debian Stretch ships an older libuuid without uuid_generate_sha1.
-# Compile the compatibility implementation supplied in the Docker image.
+# Debian Stretch's libuuid lacks uuid_generate_sha1.
+# Provide the UUIDv5 compatibility implementation using OpenSSL.
 gcc -Wall -Wextra -Werror -c \
   /usr/local/src/uuid-generate-sha1-compat.c \
   -o "$WORK/uuid-generate-sha1-compat.o"
 
-# Generate the Shairport Sync build system and configure AirPlay 2 support.
+# Configure Shairport Sync with AirPlay 2 support.
 cd "$WORK/src/shairport-sync-${SHAIRPORT_VERSION}"
 autoreconf -fi
 
 PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:/usr/local/lib/arm-linux-gnueabihf/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}" \
-  LIBS="$WORK/uuid-generate-sha1-compat.o -lcrypto -Wl,-Bstatic -lsodium -lconfig -Wl,-Bdynamic" \
+  LIBS="$WORK/uuid-generate-sha1-compat.o -lcrypto" \
   ./configure \
     --prefix=/usr \
     --sysconfdir=/etc \
@@ -74,17 +74,25 @@ PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:/usr/local/lib/arm-linux-gnueabihf/pkg
     --with-pipe \
     --with-airplay-2
 
+# Shairport Sync's configure script adds -lconfig and may add -lsodium.
+# Force these libraries to be selected from their static archives.
+# Restore dynamic linking immediately afterward for other libraries.
+sed -i \
+  -e 's/-lconfig/-Wl,-Bstatic -lconfig -Wl,-Bdynamic/g' \
+  -e 's/-lsodium/-Wl,-Bstatic -lsodium -Wl,-Bdynamic/g' \
+  Makefile
+
 make -j2
 DESTDIR="$WORK/stage-shairport" make install
 
 cd "$WORK"
 
-# Stage Shairport Sync executable.
+# Stage Shairport Sync.
 install -m 0755 \
   "$WORK/stage-shairport/usr/bin/shairport-sync" \
   "$OUT/shairport-sync"
 
-# Locate and stage the NQPTP executable.
+# Locate and stage NQPTP.
 NQPTP_BIN="$WORK/stage-nqptp/usr/bin/nqptp"
 
 if [ ! -x "$NQPTP_BIN" ]; then
@@ -107,7 +115,7 @@ if ! ls "$OUT"/lib/libplist-2.0.so* >/dev/null 2>&1; then
   exit 1
 fi
 
-# Verify binary architecture.
+# Verify ARM architecture.
 file "$OUT/shairport-sync" > "$OUT/shairport-file.txt"
 file "$OUT/nqptp" > "$OUT/nqptp-file.txt"
 cat "$OUT/shairport-file.txt" "$OUT/nqptp-file.txt" > "$OUT/file-report.txt"
@@ -123,7 +131,7 @@ if ! grep -q 'ARM' "$OUT/nqptp-file.txt"; then
   exit 1
 fi
 
-# Check shared-library resolution in the build container.
+# Check shared-library resolution.
 LD_LIBRARY_PATH="$OUT/lib" ldd "$OUT/shairport-sync" > "$OUT/shairport-ldd.txt"
 ldd "$OUT/nqptp" > "$OUT/nqptp-ldd.txt"
 
@@ -131,10 +139,11 @@ cat "$OUT/shairport-ldd.txt"
 cat "$OUT/nqptp-ldd.txt"
 
 if grep -q 'not found' "$OUT/shairport-ldd.txt" "$OUT/nqptp-ldd.txt"; then
-  echo "One or more shared-library dependencies are missing in the build container" >&2
+  echo "One or more shared-library dependencies are missing" >&2
   exit 1
 fi
 
+# Keep this compatibility check enabled.
 if grep -Eq 'lib(config|sodium)\.so' "$OUT/shairport-ldd.txt"; then
   echo "libconfig/libsodium should be statically linked for HTP-1 compatibility" >&2
   exit 1
@@ -145,7 +154,7 @@ if ! grep -Fq "$OUT/lib/libplist-2.0.so" "$OUT/shairport-ldd.txt"; then
   exit 1
 fi
 
-# Check executable startup and report versions.
+# Check executable startup and versions.
 LD_LIBRARY_PATH="$OUT/lib" "$OUT/shairport-sync" -V > "$OUT/shairport-version.txt"
 LD_LIBRARY_PATH="$OUT/lib" "$OUT/nqptp" -V > "$OUT/nqptp-version.txt"
 
@@ -162,16 +171,20 @@ if ! grep -qi 'smi11' "$OUT/nqptp-version.txt"; then
   exit 1
 fi
 
-# Stage the two Debian 9 ARMHF packages needed to run Avahi for AirPlay 2.
+# Stage the Debian 9 ARMHF Avahi runtime packages.
 mkdir -p "$OUT/debs"
-cp -a /opt/htp1-debs/avahi-daemon_*.deb /opt/htp1-debs/libavahi-core7_*.deb "$OUT/debs/"
+cp -a /opt/htp1-debs/avahi-daemon_*.deb \
+  /opt/htp1-debs/libavahi-core7_*.deb "$OUT/debs/"
 
 for deb in "$OUT"/debs/*.deb; do
-  [ -f "$deb" ] || { echo "Missing required Avahi package: $deb" >&2; exit 1; }
+  [ -f "$deb" ] || {
+    echo "Missing required Avahi package: $deb" >&2
+    exit 1
+  }
   dpkg-deb -f "$deb" Package Architecture
 done
 
-# Record checks. Physical HTP-1 playback is not tested by this build.
+# Record build results. Hardware playback is not tested here.
 {
   echo "result=PASS: build, architecture, dynamic-link and version checks passed"
   echo "runtime_htp1_shared_libraries=NOT_VERIFIED"
