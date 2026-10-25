@@ -53,12 +53,18 @@ autoreconf -fi
 make -j2
 DESTDIR="$WORK/stage-nqptp" make install
 
+# Debian Stretch ships an older libuuid without uuid_generate_sha1.
+# Compile the compatibility implementation supplied in the Docker image.
+gcc -Wall -Wextra -Werror -c \
+  /usr/local/src/uuid-generate-sha1-compat.c \
+  -o "$WORK/uuid-generate-sha1-compat.o"
+
 # Generate the Shairport Sync build system and configure AirPlay 2 support.
 cd "$WORK/src/shairport-sync-${SHAIRPORT_VERSION}"
 autoreconf -fi
 
 PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:/usr/local/lib/arm-linux-gnueabihf/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}" \
-  LIBS="-Wl,-Bstatic -lsodium -lconfig -Wl,-Bdynamic" \
+  LIBS="$WORK/uuid-generate-sha1-compat.o -lcrypto -Wl,-Bstatic -lsodium -lconfig -Wl,-Bdynamic" \
   ./configure \
     --prefix=/usr \
     --sysconfdir=/etc \
@@ -128,6 +134,7 @@ if grep -q 'not found' "$OUT/shairport-ldd.txt" "$OUT/nqptp-ldd.txt"; then
   echo "One or more shared-library dependencies are missing in the build container" >&2
   exit 1
 fi
+
 if grep -Eq 'lib(config|sodium)\.so' "$OUT/shairport-ldd.txt"; then
   echo "libconfig/libsodium should be statically linked for HTP-1 compatibility" >&2
   exit 1
@@ -158,6 +165,7 @@ fi
 # Stage the two Debian 9 ARMHF packages needed to run Avahi for AirPlay 2.
 mkdir -p "$OUT/debs"
 cp -a /opt/htp1-debs/avahi-daemon_*.deb /opt/htp1-debs/libavahi-core7_*.deb "$OUT/debs/"
+
 for deb in "$OUT"/debs/*.deb; do
   [ -f "$deb" ] || { echo "Missing required Avahi package: $deb" >&2; exit 1; }
   dpkg-deb -f "$deb" Package Architecture
@@ -178,4 +186,3 @@ done
   echo "configure_flags=--with-alsa --with-avahi --with-ssl=openssl --with-pipe --with-airplay-2"
   sha256sum "$OUT/shairport-sync" "$OUT/nqptp"
 } > "$OUT/BUILD-REPORT.txt"
-
