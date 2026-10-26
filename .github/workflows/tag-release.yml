@@ -10,20 +10,25 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   tag:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
         with:
           ref: main
 
-      - name: Verify version and create tag
+      - name: Verify version, create tag, and start release build
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
 
           VERSION="${{ inputs.version }}"
+          TAG="v${VERSION}"
           MANIFEST_VERSION="$(jq -r '.version' addons/airplay/addon.json)"
 
           if [ "$VERSION" != "$MANIFEST_VERSION" ]; then
@@ -31,8 +36,13 @@ jobs:
             exit 1
           fi
 
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if ! git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag "$TAG"
+            git push origin "$TAG"
+          else
+            echo "Tag $TAG already exists."
+          fi
 
-          git tag "v${VERSION}"
-          git push origin "v${VERSION}"
+          gh workflow run build-airplay.yml --ref "$TAG"
