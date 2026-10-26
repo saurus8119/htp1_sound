@@ -1,6 +1,6 @@
 {
   "name": "htp1_sound",
-  "updated": "2026-10-26T03:07:29Z",
+  "updated": "2026-10-26T21:19:29Z",
   "addons": [
     {
       "id": "airplay",
@@ -13,8 +13,8 @@
         ]
       },
       "url": "https://github.com/saurus8119/htp1_sound/releases/download/v0.1.1/htp1-addon-airplay-0.1.1.tar.gz",
-      "sha256": "85bb17c5eaed3e6b55d71f3da2686d11c41243df0f96dca4ea8f3790cd6da597",
-      "size": 797003
+      "sha256": "8071d8b3f92b7bded88f857d888025eabb75007470f6abcad9a616a5396610de",
+      "size": 797014
     }
   ]
 }
