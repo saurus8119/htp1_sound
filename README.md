@@ -1,4 +1,4 @@
-# htp1-sound
+# HTP - Airplay2 
 
 HTP-1 add-on repository for AirPlay 2, using Shairport Sync 5.6.1 and NQPTP 1.2.9 (SMI11). The AirPlay package follows the upstream
 `htp1-app/htp1-addons` runtime layout and ALSA/I2S configuration. Hardware
