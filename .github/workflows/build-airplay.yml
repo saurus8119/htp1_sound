@@ -117,4 +117,4 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
           echo "Verified installable archive: $ARCHIVE_PATH"
-          echo "Verified checksum: $CHECKSUM_
+          echo "Verified checksum: $CHECKSUM_PATH"
