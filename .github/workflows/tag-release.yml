@@ -1,0 +1,38 @@
+name: Create Release Tag
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version, without the v"
+        required: true
+        default: "0.1.2"
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Verify version and create tag
+        run: |
+          set -euo pipefail
+
+          VERSION="${{ inputs.version }}"
+          MANIFEST_VERSION="$(jq -r '.version' addons/airplay/addon.json)"
+
+          if [ "$VERSION" != "$MANIFEST_VERSION" ]; then
+            echo "Requested version $VERSION does not match addon.json version $MANIFEST_VERSION"
+            exit 1
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git tag "v${VERSION}"
+          git push origin "v${VERSION}"
