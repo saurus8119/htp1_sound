@@ -1,7 +1,7 @@
 
 name: Build HTP-1 AirPlay addon
 
-"on":
+on:
   push:
     branches: [main, master]
     tags: ['v*']
@@ -12,8 +12,9 @@ permissions:
   contents: write
 
 jobs:
-  build:
+  build-and-publish:
     runs-on: ubuntu-24.04
+
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -30,173 +31,111 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
           mkdir -p "$RUNNER_TEMP/airplay-out/work"
 
-          docker buildx build --platform linux/arm/v7 --load \
-            -t htp1-airplay-build ./addons/airplay/build
+          docker buildx build \
+            --platform linux/arm/v7 \
+            --load \
+            -t htp1-airplay-build \
+            ./addons/airplay/build
 
-          docker run --rm --platform linux/arm/v7 \
+          docker run --rm \
+            --platform linux/arm/v7 \
             --entrypoint /bin/sh \
             -v "$RUNNER_TEMP/airplay-out:/out" \
             -v "$RUNNER_TEMP/airplay-out/work:/work" \
             htp1-airplay-build \
             -c 'exec /usr/local/bin/build-target'
 
-      - name: Package and verify addon
+      - name: Package and verify installable addon
+        id: package
         shell: bash
         run: |
           set -euo pipefail
 
-          mkdir -p dist "$RUNNER_TEMP/airplay-diagnostics"
-
           BUILD_OUTPUT="$RUNNER_TEMP/airplay-out" \
-            bash tools/pack.sh airplay
+            tools/pack.sh airplay
 
-          VERSION="$(jq -r '.version' addons/airplay/addon.json)"
+          VERSION="$(jq -er '.version' addons/airplay/addon.json)"
           ARCHIVE="htp1-addon-airplay-${VERSION}.tar.gz"
 
           test -s "dist/$ARCHIVE"
 
-          # Regenerate the checksum using the archive's relative filename.
+          # The archive must contain the add-on, not another project archive.
+          tar -tzf "dist/$ARCHIVE" > "$RUNNER_TEMP/archive-list.txt"
+
+          grep -Fxq "airplay/addon.json" \
+            "$RUNNER_TEMP/archive-list.txt"
+
+          if grep -Eq \
+            '(^|/)(htp1-addon-airplay-[^/]*\.tar\.gz|SHA256SUMS)$' \
+            "$RUNNER_TEMP/archive-list.txt"; then
+            echo "Nested archive or checksum found inside the addon." >&2
+            exit 1
+          fi
+
+          # Generate and verify the checksum separately from the archive.
           (
             cd dist
             sha256sum "$ARCHIVE" > SHA256SUMS
             sha256sum -c SHA256SUMS
           )
 
-          if [ -f "$RUNNER_TEMP/airplay-out/BUILD-REPORT.txt" ]; then
-            cp "$RUNNER_TEMP/airplay-out/BUILD-REPORT.txt" \
-              "$RUNNER_TEMP/airplay-diagnostics/"
-          fi
+          echo "archive=dist/$ARCHIVE" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-          for pattern in \
-            "$RUNNER_TEMP/airplay-out/"*-report.txt \
-            "$RUNNER_TEMP/airplay-out/"*-ldd.txt \
-            "$RUNNER_TEMP/airplay-out/"*-version.txt \
-            "$RUNNER_TEMP/airplay-out/"*-file.txt
-          do
-            if [ -f "$pattern" ]; then
-              cp "$pattern" "$RUNNER_TEMP/airplay-diagnostics/"
-            fi
-          done
+          echo "Verified installable archive: dist/$ARCHIVE"
+          cat dist/SHA256SUMS
 
-          echo "Package: dist/$ARCHIVE"
-          echo "Checksum: dist/SHA256SUMS"
-          ls -lh dist/
-
-      - name: Upload installable package
-        uses: actions/upload-artifact@v4
-        with:
-          name: htp1-airplay-package
-          path: |
-            dist/htp1-addon-airplay-*.tar.gz
-            dist/SHA256SUMS
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload build diagnostics
-        uses: actions/upload-artifact@v4
-        with:
-          name: htp1-airplay-diagnostics
-          path: ${{ runner.temp }}/airplay-diagnostics/
-          if-no-files-found: warn
-          retention-days: 30
-
-  publish:
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: build
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Check out tagged source
-        uses: actions/checkout@v4
-
-      - name: Download built package
-        uses: actions/download-artifact@v4
-        with:
-          name: htp1-airplay-package
-          path: dist
-
-      - name: Download build diagnostics
-        uses: actions/download-artifact@v4
-        with:
-          name: htp1-airplay-diagnostics
-          path: diagnostics
-
-      - name: Verify tag matches addon version
-        id: version
+      - name: Verify release tag matches addon version
+        if: startsWith(github.ref, 'refs/tags/v')
         shell: bash
         run: |
           set -euo pipefail
 
-          VERSION="$(jq -r '.version' addons/airplay/addon.json)"
-          TAG="${GITHUB_REF_NAME}"
+          EXPECTED="v${{ steps.package.outputs.version }}"
 
-          if [ "$TAG" != "v$VERSION" ]; then
-            echo "Tag $TAG must match addon.json version v$VERSION" >&2
+          if [ "$GITHUB_REF_NAME" != "$EXPECTED" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match $EXPECTED" >&2
             exit 1
           fi
 
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-
-      - name: Verify package checksum
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd dist
-          sha256sum -c SHA256SUMS
-
-      - name: Create GitHub release and upload package
+      - name: Publish installable addon archive
+        if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
 
-          VERSION="${{ steps.version.outputs.version }}"
-          ARCHIVE="dist/htp1-addon-airplay-${VERSION}.tar.gz"
-
-          ASSETS=(
-            "$ARCHIVE"
-            dist/SHA256SUMS
-          )
-
-          if [ -f diagnostics/BUILD-REPORT.txt ]; then
-            ASSETS+=(diagnostics/BUILD-REPORT.txt)
-          fi
-
-          for pattern in \
-            diagnostics/*-report.txt \
-            diagnostics/*-ldd.txt \
-            diagnostics/*-version.txt \
-            diagnostics/*-file.txt
-          do
-            if [ -f "$pattern" ]; then
-              ASSETS+=("$pattern")
-            fi
-          done
-
+          # Upload the actual add-on archive, not an Actions artifact wrapper.
           gh release create "$GITHUB_REF_NAME" \
-            "${ASSETS[@]}" \
-            --title "HTP-1 AirPlay ${VERSION}" \
-            --notes "Automated ARMv7 build. Build diagnostics are attached when available. CI does not establish compatibility on physical HTP-1 hardware."
+            "${{ steps.package.outputs.archive }}" \
+            --title "HTP-1 AirPlay ${{ steps.package.outputs.version }}" \
+            --notes "Installable HTP-1 AirPlay addon archive. The catalog contains the archive checksum."
 
       - name: Update catalog on main
+        if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ steps.version.outputs.version }}
+          VERSION: ${{ steps.package.outputs.version }}
         shell: bash
         run: |
           set -euo pipefail
 
+          # Generate the catalog entry from the verified release archive.
           tools/index.sh "$GITHUB_REF_NAME"
           cp index.json "$RUNNER_TEMP/index.json.generated"
 
+          # Update main without moving or rewriting the release tag.
           git fetch origin main
           git checkout -B main origin/main
           cp "$RUNNER_TEMP/index.json.generated" index.json
 
           git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
 
           git add index.json
 
