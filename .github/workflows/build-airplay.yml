@@ -53,12 +53,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
           OUT="$RUNNER_TEMP/airplay-out"
           PACKAGE_OUT="$RUNNER_TEMP/release-package"
 
           VERSION="$(jq -er '.version' addons/airplay/addon.json)"
-          ARCHIVE="htp1-addon-airplay2-${VERSION}.tar.gz"
+          ADDON_ID="$(jq -er '.id' addons/airplay/addon.json)"
+          EXPECTED_ID="airplay2"
+
+          if [ "$ADDON_ID" != "$EXPECTED_ID" ]; then
+            echo "Expected manifest ID '$EXPECTED_ID', got '$ADDON_ID'." >&2
+            exit 1
+          fi
+
+          ARCHIVE="htp1-addon-${ADDON_ID}-${VERSION}.tar.gz"
 
           test -s "$OUT/shairport-sync"
           test -s "$OUT/nqptp"
@@ -68,7 +75,6 @@ jobs:
           install -m 0755 \
             "$OUT/shairport-sync" \
             addons/airplay/bin/shairport-sync
-
           install -m 0755 \
             "$OUT/nqptp" \
             addons/airplay/bin/nqptp
@@ -84,7 +90,8 @@ jobs:
 
           mkdir -p "$PACKAGE_OUT"
 
-          bash tools/pack.sh airplay "$PACKAGE_OUT"
+          # Source remains addons/airplay; the installable package ID is airplay2.
+          bash tools/pack.sh addons/airplay "$ADDON_ID" "$PACKAGE_OUT"
 
           ARCHIVE_PATH="$PACKAGE_OUT/$ARCHIVE"
           CHECKSUM_PATH="$PACKAGE_OUT/$ARCHIVE.sha256"
@@ -95,16 +102,16 @@ jobs:
           LIST="$RUNNER_TEMP/airplay-archive-list.txt"
           tar -tzf "$ARCHIVE_PATH" > "$LIST"
 
-          grep -Fxq 'airplay/addon.json' "$LIST"
-          grep -Fxq 'airplay/bin/shairport-sync' "$LIST"
-          grep -Fxq 'airplay/bin/nqptp' "$LIST"
-          grep -Fxq 'airplay/etc/shairport-sync.conf' "$LIST"
-          grep -Fxq 'airplay/units/airplay.service' "$LIST"
-          grep -Fxq 'airplay/units/nqptp.service' "$LIST"
-          grep -Fxq 'airplay/units/avahi-daemon.service.d/htp1.conf' "$LIST"
+          grep -Fxq 'airplay2/addon.json' "$LIST"
+          grep -Fxq 'airplay2/bin/shairport-sync' "$LIST"
+          grep -Fxq 'airplay2/bin/nqptp' "$LIST"
+          grep -Fxq 'airplay2/etc/shairport-sync.conf' "$LIST"
+          grep -Fxq 'airplay2/units/airplay.service' "$LIST"
+          grep -Fxq 'airplay2/units/nqptp.service' "$LIST"
+          grep -Fxq 'airplay2/units/avahi-daemon.service.d/htp1.conf' "$LIST"
 
           if grep -Eq \
-            '(^|/)(htp1-addon-airplay[^/]*\.tar\.gz|SHA256SUMS|[^/]+\.tar\.gz\.sha256)$|(^|/)\.\./|^/' \
+            '(^|/)(htp1-addon-airplay-[^/]*\.tar\.gz|SHA256SUMS|[^/]+\.tar\.gz\.sha256)$|(^|/)\.\./|^/' \
             "$LIST"; then
             echo "Unexpected nested archive, checksum, or unsafe path." >&2
             exit 1
@@ -118,6 +125,7 @@ jobs:
           echo "archive=$ARCHIVE_PATH" >> "$GITHUB_OUTPUT"
           echo "checksum=$CHECKSUM_PATH" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "addon_id=$ADDON_ID" >> "$GITHUB_OUTPUT"
 
           echo "Verified installable archive: $ARCHIVE_PATH"
           echo "Verified checksum: $CHECKSUM_PATH"
@@ -127,7 +135,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
           VERSION="${{ steps.package.outputs.version }}"
           EXPECTED_TAG="v${VERSION}"
 
@@ -143,22 +150,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
           VERSION="${{ steps.package.outputs.version }}"
           ARCHIVE="${{ steps.package.outputs.archive }}"
           CHECKSUM="${{ steps.package.outputs.checksum }}"
-          NOTES="Installable HTP-1 AirPlay 2.0 addon. The tarball contains the addon folder and runtime files. The SHA256 checksum is provided as a separate release asset."
+          NOTES="Installable HTP-1 AirPlay 2.0 addon (ID: airplay2). The tarball contains the addon folder and runtime files. The SHA256 checksum is provided as a separate release asset."
 
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             echo "Release $GITHUB_REF_NAME already exists; uploading assets."
-
             gh release upload "$GITHUB_REF_NAME" \
               "$ARCHIVE" \
               "$CHECKSUM" \
               --clobber
           else
             echo "Creating release $GITHUB_REF_NAME."
-
             gh release create "$GITHUB_REF_NAME" \
               "$ARCHIVE" \
               "$CHECKSUM" \
@@ -175,7 +179,8 @@ jobs:
           set -euo pipefail
 
           VERSION="${{ steps.package.outputs.version }}"
-          ARCHIVE_NAME="htp1-addon-airplay2-${VERSION}.tar.gz"
+          ADDON_ID="${{ steps.package.outputs.addon_id }}"
+          ARCHIVE_NAME="htp1-addon-${ADDON_ID}-${VERSION}.tar.gz"
 
           mkdir -p "$RUNNER_TEMP/catalog-package"
           cp "${{ steps.package.outputs.archive }}" \
@@ -194,7 +199,6 @@ jobs:
             "41898282+github-actions[bot]@users.noreply.github.com"
 
           git add index.json
-
           if ! git diff --cached --quiet; then
             git commit \
               -m "Publish AirPlay 2.0 addon ${VERSION} in catalog"
