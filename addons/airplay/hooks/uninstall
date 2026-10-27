@@ -1,4 +1,5 @@
 #!/bin/bash
-systemctl stop avahi-daemon.service avahi-daemon.socket >/dev/null 2>&1 || true
+# Avahi is shared by network-discovery services; do not stop it directly here.
+# The unit drop-in uses StopWhenUnneeded so systemd can stop it when unused.
 systemctl daemon-reload >/dev/null 2>&1 || true
 exit 0
