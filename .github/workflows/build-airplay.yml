@@ -1,5 +1,5 @@
 
-name: Build HTP-1 AirPlay addon
+name: Build HTP-1 AirPlay 2.0 addon
 
 on:
   push:
@@ -58,7 +58,7 @@ jobs:
           PACKAGE_OUT="$RUNNER_TEMP/release-package"
 
           VERSION="$(jq -er '.version' addons/airplay/addon.json)"
-          ARCHIVE="htp1-addon-airplay-${VERSION}.tar.gz"
+          ARCHIVE="htp1-addon-airplay2-${VERSION}.tar.gz"
 
           test -s "$OUT/shairport-sync"
           test -s "$OUT/nqptp"
@@ -104,7 +104,7 @@ jobs:
           grep -Fxq 'airplay/units/avahi-daemon.service.d/htp1.conf' "$LIST"
 
           if grep -Eq \
-            '(^|/)(htp1-addon-airplay-[^/]*\.tar\.gz|SHA256SUMS|[^/]+\.tar\.gz\.sha256)$|(^|/)\.\./|^/' \
+            '(^|/)(htp1-addon-airplay[^/]*\.tar\.gz|SHA256SUMS|[^/]+\.tar\.gz\.sha256)$|(^|/)\.\./|^/' \
             "$LIST"; then
             echo "Unexpected nested archive, checksum, or unsafe path." >&2
             exit 1
@@ -147,7 +147,7 @@ jobs:
           VERSION="${{ steps.package.outputs.version }}"
           ARCHIVE="${{ steps.package.outputs.archive }}"
           CHECKSUM="${{ steps.package.outputs.checksum }}"
-          NOTES="Installable HTP-1 AirPlay addon. The tarball contains the addon folder and runtime files. The SHA256 checksum is provided as a separate release asset."
+          NOTES="Installable HTP-1 AirPlay 2.0 addon. The tarball contains the addon folder and runtime files. The SHA256 checksum is provided as a separate release asset."
 
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             echo "Release $GITHUB_REF_NAME already exists; uploading assets."
@@ -162,7 +162,7 @@ jobs:
             gh release create "$GITHUB_REF_NAME" \
               "$ARCHIVE" \
               "$CHECKSUM" \
-              --title "HTP-1 AirPlay ${VERSION}" \
+              --title "HTP-1 AirPlay 2.0 ${VERSION}" \
               --notes "$NOTES"
           fi
 
@@ -175,7 +175,7 @@ jobs:
           set -euo pipefail
 
           VERSION="${{ steps.package.outputs.version }}"
-          ARCHIVE_NAME="htp1-addon-airplay-${VERSION}.tar.gz"
+          ARCHIVE_NAME="htp1-addon-airplay2-${VERSION}.tar.gz"
 
           mkdir -p "$RUNNER_TEMP/catalog-package"
           cp "${{ steps.package.outputs.archive }}" \
@@ -197,6 +197,6 @@ jobs:
 
           if ! git diff --cached --quiet; then
             git commit \
-              -m "Publish AirPlay addon ${VERSION} in catalog"
+              -m "Publish AirPlay 2.0 addon ${VERSION} in catalog"
             git push origin main
           fi
