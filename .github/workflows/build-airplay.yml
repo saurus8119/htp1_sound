@@ -53,6 +53,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
           OUT="$RUNNER_TEMP/airplay-out"
           PACKAGE_OUT="$RUNNER_TEMP/release-package"
 
@@ -80,7 +81,6 @@ jobs:
             addons/airplay/bin/nqptp
 
           rm -rf addons/airplay/lib addons/airplay/debs
-
           cp -a "$OUT/lib" addons/airplay/lib
           cp -a "$OUT/debs" addons/airplay/debs
 
@@ -90,7 +90,7 @@ jobs:
 
           mkdir -p "$PACKAGE_OUT"
 
-          # Source remains addons/airplay; the installable package ID is airplay2.
+          # Source folder stays addons/airplay; package identity is airplay2.
           bash tools/pack.sh addons/airplay "$ADDON_ID" "$PACKAGE_OUT"
 
           ARCHIVE_PATH="$PACKAGE_OUT/$ARCHIVE"
@@ -110,8 +110,15 @@ jobs:
           grep -Fxq 'airplay2/units/nqptp.service' "$LIST"
           grep -Fxq 'airplay2/units/avahi-daemon.service.d/htp1.conf' "$LIST"
 
+          # Confirm the archived manifest has the same ID and version.
+          tar -xOzf "$ARCHIVE_PATH" airplay2/addon.json |
+            jq -e --arg id "$ADDON_ID" --arg version "$VERSION" \
+              '.id == $id and .version == $version' >/dev/null
+
+          # Reject unsafe paths and nested release artifacts without
+          # mistakenly rejecting the valid "airplay2" package name.
           if grep -Eq \
-            '(^|/)(htp1-addon-airplay-[^/]*\.tar\.gz|SHA256SUMS|[^/]+\.tar\.gz\.sha256)$|(^|/)\.\./|^/' \
+            '(^|/)\.\.(/|$)|^/|(^|/)(htp1-addon-[^/]*\.tar\.gz|SHA256SUMS|[^/]+\.tar\.gz\.sha256)$' \
             "$LIST"; then
             echo "Unexpected nested archive, checksum, or unsafe path." >&2
             exit 1
@@ -135,6 +142,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
           VERSION="${{ steps.package.outputs.version }}"
           EXPECTED_TAG="v${VERSION}"
 
@@ -150,10 +158,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
           VERSION="${{ steps.package.outputs.version }}"
           ARCHIVE="${{ steps.package.outputs.archive }}"
           CHECKSUM="${{ steps.package.outputs.checksum }}"
-          NOTES="Installable HTP-1 AirPlay 2.0 addon (ID: airplay2). The tarball contains the addon folder and runtime files. The SHA256 checksum is provided as a separate release asset."
+          ADDON_ID="${{ steps.package.outputs.addon_id }}"
+          NOTES="Installable HTP-1 AirPlay 2.0 addon (ID: ${ADDON_ID}). The tarball contains the addon folder and runtime files. The SHA256 checksum is provided as a separate release asset."
 
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             echo "Release $GITHUB_REF_NAME already exists; uploading assets."
