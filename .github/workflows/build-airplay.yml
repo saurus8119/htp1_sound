@@ -106,8 +106,8 @@ jobs:
           grep -Fxq 'airplay2/bin/shairport-sync' "$LIST"
           grep -Fxq 'airplay2/bin/nqptp' "$LIST"
           grep -Fxq 'airplay2/etc/shairport-sync.conf' "$LIST"
-          grep -Fxq 'airplay2/units/airplay.service' "$LIST"
-          grep -Fxq 'airplay2/units/nqptp.service' "$LIST"
+          grep -Fxq 'airplay2/units/airplay2.service' "$LIST"
+          grep -Fxq 'airplay2/units/nqptp-airplay2.service' "$LIST"
           grep -Fxq 'airplay2/units/avahi-daemon.service.d/htp1.conf' "$LIST"
 
           # Confirm the archived manifest has the same ID and version.
