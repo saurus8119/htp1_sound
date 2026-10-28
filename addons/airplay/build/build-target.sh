@@ -72,7 +72,9 @@ PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:/usr/local/lib/arm-linux-gnueabihf/pkg
     --with-avahi \
     --with-ssl=openssl \
     --with-pipe \
-    --with-airplay-2
+    --with-airplay-2 \
+    > "$OUT/shairport-configure.log" 2>&1
+cat "$OUT/shairport-configure.log"
 
 # Shairport Sync's configure script adds -lconfig and may add -lsodium.
 # Force these libraries to be selected from their static archives.
@@ -138,6 +140,23 @@ ldd "$OUT/nqptp" > "$OUT/nqptp-ldd.txt"
 cat "$OUT/shairport-ldd.txt"
 cat "$OUT/nqptp-ldd.txt"
 
+# Capture binary metadata that helps identify the actual ALAC decode path.
+# FFmpeg may be dynamically linked or statically linked, so absence from ldd
+# alone is not treated as proof that FFmpeg is unused.
+readelf -d "$OUT/shairport-sync" > "$OUT/shairport-dynamic-section.txt" 2>&1 || true
+nm -D "$OUT/shairport-sync" > "$OUT/shairport-dynamic-symbols.txt" 2>&1 || true
+strings "$OUT/shairport-sync" | grep -Ei 'avcodec|avformat|ffmpeg|alac' > "$OUT/shairport-codec-strings.txt" || true
+{
+  echo "=== Dynamic dependencies ==="
+  cat "$OUT/shairport-ldd.txt"
+  echo "=== Dynamic section ==="
+  cat "$OUT/shairport-dynamic-section.txt"
+  echo "=== Matching dynamic symbols ==="
+  grep -Ei 'avcodec|avformat|ffmpeg|alac' "$OUT/shairport-dynamic-symbols.txt" || true
+  echo "=== Codec-related strings (indicative only) ==="
+  cat "$OUT/shairport-codec-strings.txt"
+} > "$OUT/alac-verification-evidence.txt"
+
 if grep -q 'not found' "$OUT/shairport-ldd.txt" "$OUT/nqptp-ldd.txt"; then
   echo "One or more shared-library dependencies are missing" >&2
   exit 1
@@ -197,5 +216,16 @@ done
   echo "avahi_runtime_packages=avahi-daemon,libavahi-core7"
   echo "target=armhf / Debian 9 / glibc 2.24 baseline"
   echo "configure_flags=--with-alsa --with-avahi --with-ssl=openssl --with-pipe --with-airplay-2"
+  if grep -Eq 'libavcodec|libavformat' "$OUT/shairport-ldd.txt"; then
+    echo "ffmpeg_linkage=dynamic (libavcodec/libavformat found by ldd)"
+  elif grep -Eiq 'avcodec|avformat|ffmpeg' "$OUT/shairport-dynamic-symbols.txt" "$OUT/shairport-codec-strings.txt"; then
+    echo "ffmpeg_linkage=possible-static-or-embedded (binary evidence found; review alac-verification-evidence.txt)"
+  else
+    echo "ffmpeg_linkage=not-confirmed-by-binary-inspection (review alac-verification-evidence.txt and configure log)"
+  fi
+  echo "alac_verification=evidence-captured; not a definitive runtime decode test"
   sha256sum "$OUT/shairport-sync" "$OUT/nqptp"
 } > "$OUT/BUILD-REPORT.txt"
+
+cat "$OUT/BUILD-REPORT.txt"
+cat "$OUT/alac-verification-evidence.txt"
