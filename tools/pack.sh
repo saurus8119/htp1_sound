@@ -1,4 +1,3 @@
-
 #!/bin/bash
 # tools/pack.sh <id> [outdir]
 #   Finds the source directory by matching the add-on manifest ID.
@@ -89,6 +88,10 @@ version = manifest.get("version")
 if not isinstance(version, str) or not version:
     raise SystemExit("pack: manifest has no valid version")
 
+declared_units = manifest.get("units", {})
+if not isinstance(declared_units, dict):
+    raise SystemExit("pack: manifest 'units' must be an object")
+
 name = "htp1-addon-%s-%s.tar.gz" % (aid, version)
 ship_files = {"addon.json", "README.md"}
 # lib/ is included because this build bundles libplist-2.0.so for the target.
@@ -104,6 +107,11 @@ with open(path, "wb") as raw:
                 if rel == ".":
                     dirs[:] = sorted(d for d in dirs if d in ship_dirs)
                     files = [f for f in files if f in ship_files]
+                elif rel == "units":
+                    # Source trees may retain legacy units; only package units
+                    # explicitly registered by this add-on's manifest.
+                    files = [f for f in files if f in declared_units]
+                    dirs.sort()
                 else:
                     dirs.sort()
 
