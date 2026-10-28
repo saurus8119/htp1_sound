@@ -1,8 +1,8 @@
 {
   "id": "airplay2",
-  "version": "2.0.7",
+  "version": "2.0.8",
   "label": "AirPlay 2.0",
-  "summary": "Independent AirPlay 2 receiver (Shairport Sync 5.6.1 with NQPTP 1.2.9; SMI11)",
+  "summary": "Independent AirPlay receiver (Shairport Sync 5.6.1 with NQPTP 1.2.9; SMI11; classic AirPlay test)",
   "requires": {
     "capabilities": [
       "source/1"
