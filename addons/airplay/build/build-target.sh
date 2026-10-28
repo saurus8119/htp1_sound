@@ -226,3 +226,6 @@ done
   echo "alac_verification=evidence-captured; not a definitive runtime decode test"
   sha256sum "$OUT/shairport-sync" "$OUT/nqptp"
 } > "$OUT/BUILD-REPORT.txt"
+
+cat "$OUT/BUILD-REPORT.txt"
+cat "$OUT/alac-verification-evidence.txt"
