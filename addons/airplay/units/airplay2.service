@@ -9,7 +9,7 @@ User=root
 Environment=LD_LIBRARY_PATH=/var/lib/olympia/addons/airplay2/lib:/usr/local/lib
 CPUSchedulingPolicy=fifo
 CPUSchedulingPriority=45
-ExecStart=/bin/bash -c 'NAME="HTP-1 AirPlay 2.0"; exec /var/lib/olympia/addons/airplay2/bin/shairport-sync --configfile=/var/lib/olympia/addons/airplay2/etc/shairport-sync.conf -a "$NAME"'
+ExecStart=/bin/bash -c 'NAME="HTPlay-1"; exec /var/lib/olympia/addons/airplay2/bin/shairport-sync --configfile=/var/lib/olympia/addons/airplay2/etc/shairport-sync.conf -a "$NAME"'
 ExecStartPost=/bin/bash -c 'echo $MAINPID > /sys/fs/cgroup/cpuset/user/cgroup.procs 2>/dev/null || true'
 KillSignal=SIGINT
 Restart=on-failure
