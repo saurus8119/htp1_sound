@@ -61,6 +61,18 @@ gcc -Wall -Wextra -Werror -c \
 
 # Configure Shairport Sync with AirPlay 2, FFmpeg and SoXR support.
 cd "$WORK/src/shairport-sync-${SHAIRPORT_VERSION}"
+
+# Enforce the configured FFmpeg ALAC decoder: fail startup rather than silently
+# falling back, and print the selected decoder during normal startup.
+patch --batch --forward --fuzz=0 -p1 \
+  -i /usr/local/src/shairport-sync-require-ffmpeg-alac.patch
+
+if ! grep -Fq 'Using the FFmpeg ALAC decoder.' shairport.c ||
+   ! grep -Fq 'Refusing to fall back to another ALAC decoder.' shairport.c; then
+  echo "Strict FFmpeg ALAC source patch was not applied" >&2
+  exit 1
+fi
+
 autoreconf -fi
 
 PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:/usr/local/lib/arm-linux-gnueabihf/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}" \
@@ -106,6 +118,18 @@ cd "$WORK"
 install -m 0755 \
   "$WORK/stage-shairport/usr/bin/shairport-sync" \
   "$OUT/shairport-sync"
+
+# Confirm the fail-closed and selected-decoder messages are present in the
+# actual executable that will be packaged.
+if ! strings "$OUT/shairport-sync" | grep -Fq 'Using the FFmpeg ALAC decoder.'; then
+  echo "Built Shairport Sync binary lacks the FFmpeg ALAC selection message" >&2
+  exit 1
+fi
+if ! strings "$OUT/shairport-sync" | grep -Fq 'Refusing to fall back to another ALAC decoder.'; then
+  echo "Built Shairport Sync binary lacks the strict FFmpeg ALAC fallback guard" >&2
+  exit 1
+fi
+echo "alac_decoder_enforcement=FFmpeg required; startup logs selected decoder"
 
 # Locate and stage NQPTP.
 NQPTP_BIN="$WORK/stage-nqptp/usr/bin/nqptp"
