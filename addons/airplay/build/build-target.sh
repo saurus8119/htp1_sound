@@ -171,8 +171,7 @@ gcc -Wall -Wextra -Werror \
   /usr/local/src/check-alac-decoder.c \
   -o "$OUT/check-alac-decoder" \
   $(pkg-config --libs libavcodec libavutil)
-"$OUT/check-alac-decoder" > "$OUT/alac-decoder-report.txt"
-cat "$OUT/alac-decoder-report.txt"
+"$OUT/check-alac-decoder"
 
 # Capture binary metadata that helps identify the actual ALAC decode path.
 # FFmpeg may be dynamically linked or statically linked, so absence from ldd
@@ -264,12 +263,11 @@ done
     echo "ffmpeg_linkage=not-confirmed-by-binary-inspection (review alac-verification-evidence.txt and configure log)"
   fi
   echo "aac_decoder_verification=passed; decoder and advertised sample formats recorded in aac-decoder-report.txt"
-  echo "alac_decoder_verification=passed; decoder and advertised sample formats recorded in alac-decoder-report.txt"
-  echo "alac_runtime_path=not_confirmed; review alac-verification-evidence.txt"
+  echo "alac_decoder_verification=passed; decoder details printed in this Actions log"
+  echo "alac_runtime_path=not_confirmed; decoder availability does not prove Shairport Sync selects it"
   sha256sum "$OUT/shairport-sync" "$OUT/nqptp"
 } > "$OUT/BUILD-REPORT.txt"
 
 cat "$OUT/BUILD-REPORT.txt"
 cat "$OUT/aac-decoder-report.txt"
-cat "$OUT/alac-decoder-report.txt"
 cat "$OUT/alac-verification-evidence.txt"
