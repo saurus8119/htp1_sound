@@ -9,3 +9,5 @@ The CI artifact separates the installable `.tar.gz` and checksum from diagnostic
 reports. Only the `.tar.gz` is attached as the release package asset. CI cannot
 prove runtime library compatibility or physical playback; hardware validation is
 still required.
+
+Release 2.0.34: build and publish the installable HTP-1 addon package.
