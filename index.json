@@ -1,10 +1,10 @@
 {
   "name": "htp1_sound",
-  "updated": "2026-10-30T14:18:03Z",
+  "updated": "2026-10-30T14:33:59Z",
   "addons": [
     {
       "id": "airplay2",
-      "version": "2.0.25",
+      "version": "2.0.26",
       "label": "AirPlay 2.0",
       "summary": "Independent AirPlay receiver (Shairport Sync 5.6.1 with NQPTP 1.2.9; SMI11;)",
       "requires": {
@@ -12,9 +12,9 @@
           "source/1"
         ]
       },
-      "url": "https://github.com/saurus8119/htp1_sound/releases/download/v2.0.25/htp1-addon-airplay2-2.0.25.tar.gz",
-      "sha256": "cc65f3ef499f8c1b85f824a37e7c9c690feebd45a74958bf4563a3741a07d5b5",
-      "size": 797131
+      "url": "https://github.com/saurus8119/htp1_sound/releases/download/v2.0.26/htp1-addon-airplay2-2.0.26.tar.gz",
+      "sha256": "449a8936a99e8f9a75c048d2d9790dd367f5b5c598306f3d35c43edaf9c983f5",
+      "size": 797139
     }
   ]
 }
