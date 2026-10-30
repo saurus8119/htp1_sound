@@ -6,9 +6,11 @@ on:
     tags: ['v*']
     paths-ignore:
       - addons/airplay/etc/shairport-sync.conf
+      - addons/airplay/addon.json
   pull_request:
     paths-ignore:
       - addons/airplay/etc/shairport-sync.conf
+      - addons/airplay/addon.json
   workflow_dispatch:
 
 permissions:
