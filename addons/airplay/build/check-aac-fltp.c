@@ -4,6 +4,7 @@
 #include <stdio.h>
 
 int main(void) {
+    avcodec_register_all();
     const AVCodec *decoder = avcodec_find_decoder(AV_CODEC_ID_AAC);
     const enum AVSampleFormat *format;
     int supports_fltp = 0;
