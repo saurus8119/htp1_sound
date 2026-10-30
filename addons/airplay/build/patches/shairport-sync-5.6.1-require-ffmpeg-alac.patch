@@ -1,7 +1,7 @@
 diff --git a/shairport.c b/shairport.c
 --- a/shairport.c
 +++ b/shairport.c
-@@ -1107,12 +1107,14 @@
+@@ -1107,11 +1107,13 @@
                     "Shairport Sync. The default decoder will be used.");
          } else if (strcasecmp(str, "ffmpeg") == 0) {
 -          if ((config.decoders_supported & 1 << decoder_ffmpeg_alac) != 0)
