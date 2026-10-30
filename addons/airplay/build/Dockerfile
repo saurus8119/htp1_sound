@@ -12,7 +12,7 @@ RUN printf '%s\n' \
       > /etc/apt/apt.conf.d/99archive \
  && apt-get -o Acquire::Check-Valid-Until=false update \
  && apt-get install -y --no-install-recommends \
-      ca-certificates curl xz-utils tar gzip make gcc g++ cmake \
+      ca-certificates curl xz-utils tar gzip make gcc g++ cmake patch \
       pkg-config autoconf automake libtool m4 dpkg-dev file binutils \
       patchelf xmltoman vim-common libsodium-dev uuid-dev \
       libavutil-dev libavcodec-dev libavformat-dev libswresample-dev \
@@ -28,6 +28,7 @@ COPY build-target.sh /usr/local/bin/build-target
 COPY uuid-generate-sha1-compat.c /usr/local/src/uuid-generate-sha1-compat.c
 COPY check-aac-fltp.c /usr/local/src/check-aac-fltp.c
 COPY check-alac-decoder.c /usr/local/src/check-alac-decoder.c
+COPY patches/shairport-sync-5.6.1-require-ffmpeg-alac.patch /usr/local/src/shairport-sync-require-ffmpeg-alac.patch
 
 RUN sed -i 's/\r$//' /usr/local/bin/build-target \
  && chmod +x /usr/local/bin/build-target
