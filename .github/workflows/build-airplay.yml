@@ -159,6 +159,16 @@ jobs:
           echo "Verified installable archive: $ARCHIVE_PATH"
           echo "Verified checksum: $CHECKSUM_PATH"
 
+      - name: Upload installable addon for testing
+        uses: actions/upload-artifact@v4
+        with:
+          name: htp1-addon-${{ steps.package.outputs.addon_id }}-${{ steps.package.outputs.version }}
+          path: |
+            ${{ steps.package.outputs.archive }}
+            ${{ steps.package.outputs.checksum }}
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Verify release tag matches addon version
         if: startsWith(github.ref, 'refs/tags/v')
         shell: bash
