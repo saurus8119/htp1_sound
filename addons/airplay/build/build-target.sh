@@ -72,6 +72,7 @@ PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:/usr/local/lib/arm-linux-gnueabihf/pkg
     --with-avahi \
     --with-ssl=openssl \
     --with-pipe \
+    --with-soxr \
     --with-airplay-2 \
     > "$OUT/shairport-configure.log" 2>&1
 cat "$OUT/shairport-configure.log"
@@ -108,12 +109,18 @@ fi
 
 install -m 0755 "$NQPTP_BIN" "$OUT/nqptp"
 
-# Bundle libplist shared objects.
+# Bundle the runtime shared objects used by Shairport Sync.
 mkdir -p "$OUT/lib"
 cp -a /usr/local/lib/libplist-2.0.so* "$OUT/lib/"
+cp -a /usr/lib/arm-linux-gnueabihf/libsoxr.so* "$OUT/lib/"
 
 if ! ls "$OUT"/lib/libplist-2.0.so* >/dev/null 2>&1; then
   echo "Bundled libplist shared objects are missing" >&2
+  exit 1
+fi
+
+if ! ls "$OUT"/lib/libsoxr.so* >/dev/null 2>&1; then
+  echo "Bundled libsoxr shared objects are missing" >&2
   exit 1
 fi
 
@@ -173,6 +180,11 @@ if ! grep -Fq "$OUT/lib/libplist-2.0.so" "$OUT/shairport-ldd.txt"; then
   exit 1
 fi
 
+if ! grep -Fq "$OUT/lib/libsoxr.so" "$OUT/shairport-ldd.txt"; then
+  echo "Shairport Sync is not resolving libsoxr from the staged addon library directory" >&2
+  exit 1
+fi
+
 # Check executable startup and versions.
 LD_LIBRARY_PATH="$OUT/lib" "$OUT/shairport-sync" -V > "$OUT/shairport-version.txt"
 LD_LIBRARY_PATH="$OUT/lib" "$OUT/nqptp" -V > "$OUT/nqptp-version.txt"
@@ -215,7 +227,8 @@ done
   echo "libplist_source=${LIBPLIST_VERSION}"
   echo "avahi_runtime_packages=avahi-daemon,libavahi-core7"
   echo "target=armhf / Debian 9 / glibc 2.24 baseline"
-  echo "configure_flags=--with-alsa --with-avahi --with-ssl=openssl --with-pipe --with-airplay-2"
+  echo "configure_flags=--with-alsa --with-avahi --with-ssl=openssl --with-pipe --with-soxr --with-airplay-2"
+  echo "soxr_runtime=libsoxr bundled in addon/lib"
   if grep -Eq 'libavcodec|libavformat' "$OUT/shairport-ldd.txt"; then
     echo "ffmpeg_linkage=dynamic (libavcodec/libavformat found by ldd)"
   elif grep -Eiq 'avcodec|avformat|ffmpeg' "$OUT/shairport-dynamic-symbols.txt" "$OUT/shairport-codec-strings.txt"; then
