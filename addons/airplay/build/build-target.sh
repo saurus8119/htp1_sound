@@ -163,6 +163,17 @@ if ! grep -q 'libavcodec' "$OUT/shairport-ldd.txt"; then
   exit 1
 fi
 
+# Verify that the build's libavcodec provides an ALAC decoder and advertises
+# its supported PCM output formats. This is a library capability check, not
+# proof that Shairport Sync routes a particular input stream through FFmpeg.
+gcc -Wall -Wextra -Werror \
+  $(pkg-config --cflags libavcodec libavutil) \
+  /usr/local/src/check-alac-decoder.c \
+  -o "$OUT/check-alac-decoder" \
+  $(pkg-config --libs libavcodec libavutil)
+"$OUT/check-alac-decoder" > "$OUT/alac-decoder-report.txt"
+cat "$OUT/alac-decoder-report.txt"
+
 # Capture binary metadata that helps identify the actual ALAC decode path.
 # FFmpeg may be dynamically linked or statically linked, so absence from ldd
 # alone is not treated as proof that FFmpeg is unused.
@@ -253,10 +264,12 @@ done
     echo "ffmpeg_linkage=not-confirmed-by-binary-inspection (review alac-verification-evidence.txt and configure log)"
   fi
   echo "aac_decoder_verification=passed; decoder and advertised sample formats recorded in aac-decoder-report.txt"
-  echo "alac_verification=evidence-captured; not a definitive runtime decode test"
+  echo "alac_decoder_verification=passed; decoder and advertised sample formats recorded in alac-decoder-report.txt"
+  echo "alac_runtime_path=not_confirmed; review alac-verification-evidence.txt"
   sha256sum "$OUT/shairport-sync" "$OUT/nqptp"
 } > "$OUT/BUILD-REPORT.txt"
 
 cat "$OUT/BUILD-REPORT.txt"
 cat "$OUT/aac-decoder-report.txt"
+cat "$OUT/alac-decoder-report.txt"
 cat "$OUT/alac-verification-evidence.txt"
