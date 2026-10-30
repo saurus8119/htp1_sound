@@ -147,6 +147,22 @@ ldd "$OUT/nqptp" > "$OUT/nqptp-ldd.txt"
 cat "$OUT/shairport-ldd.txt"
 cat "$OUT/nqptp-ldd.txt"
 
+# Verify the exact AAC decoder exposed by the libavcodec used by this build.
+# AirPlay 2 buffered AAC requires planar floating-point (fltp) output.
+gcc -Wall -Wextra -Werror \
+  $(pkg-config --cflags libavcodec libavutil) \
+  /usr/local/src/check-aac-fltp.c \
+  -o "$OUT/check-aac-fltp" \
+  $(pkg-config --libs libavcodec libavutil)
+"$OUT/check-aac-fltp" > "$OUT/aac-decoder-report.txt"
+cat "$OUT/aac-decoder-report.txt"
+
+# Confirm Shairport Sync itself uses the same dynamically linked libavcodec.
+if ! grep -q 'libavcodec' "$OUT/shairport-ldd.txt"; then
+  echo "Shairport Sync is not dynamically linked to libavcodec; AAC check may not describe its decoder" >&2
+  exit 1
+fi
+
 # Capture binary metadata that helps identify the actual ALAC decode path.
 # FFmpeg may be dynamically linked or statically linked, so absence from ldd
 # alone is not treated as proof that FFmpeg is unused.
@@ -236,9 +252,11 @@ done
   else
     echo "ffmpeg_linkage=not-confirmed-by-binary-inspection (review alac-verification-evidence.txt and configure log)"
   fi
+  echo "aac_decoder_verification=passed; decoder and advertised sample formats recorded in aac-decoder-report.txt"
   echo "alac_verification=evidence-captured; not a definitive runtime decode test"
   sha256sum "$OUT/shairport-sync" "$OUT/nqptp"
 } > "$OUT/BUILD-REPORT.txt"
 
 cat "$OUT/BUILD-REPORT.txt"
+cat "$OUT/aac-decoder-report.txt"
 cat "$OUT/alac-verification-evidence.txt"
