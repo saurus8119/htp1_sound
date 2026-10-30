@@ -59,7 +59,7 @@ gcc -Wall -Wextra -Werror -c \
   /usr/local/src/uuid-generate-sha1-compat.c \
   -o "$WORK/uuid-generate-sha1-compat.o"
 
-# Configure Shairport Sync with AirPlay 2 support.
+# Configure Shairport Sync with AirPlay 2, FFmpeg and SoXR support.
 cd "$WORK/src/shairport-sync-${SHAIRPORT_VERSION}"
 autoreconf -fi
 
@@ -76,6 +76,18 @@ PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:/usr/local/lib/arm-linux-gnueabihf/pkg
     --with-airplay-2 \
     > "$OUT/shairport-configure.log" 2>&1
 cat "$OUT/shairport-configure.log"
+
+# Verify the generated compile-time feature switches, not just configure arguments.
+if ! grep -Eq '^[[:space:]]*#define[[:space:]]+CONFIG_FFMPEG[[:space:]]+1' config.h; then
+  echo "Shairport Sync was not compiled with CONFIG_FFMPEG" >&2
+  exit 1
+fi
+if ! grep -Eq '^[[:space:]]*#define[[:space:]]+CONFIG_SOXR[[:space:]]+1' config.h; then
+  echo "Shairport Sync was not compiled with CONFIG_SOXR" >&2
+  exit 1
+fi
+echo "compile_feature_ffmpeg=enabled (CONFIG_FFMPEG)"
+echo "compile_feature_soxr=enabled (CONFIG_SOXR)"
 
 # Shairport Sync's configure script adds -lconfig and may add -lsodium.
 # Force these libraries to be selected from their static archives.
@@ -152,10 +164,9 @@ cat "$OUT/nqptp-ldd.txt"
 gcc -Wall -Wextra -Werror \
   $(pkg-config --cflags libavcodec libavutil) \
   /usr/local/src/check-aac-fltp.c \
-  -o "$OUT/check-aac-fltp" \
+  -o "$WORK/check-aac-fltp" \
   $(pkg-config --libs libavcodec libavutil)
-"$OUT/check-aac-fltp" > "$OUT/aac-decoder-report.txt"
-cat "$OUT/aac-decoder-report.txt"
+"$WORK/check-aac-fltp"
 
 # Confirm Shairport Sync itself uses the same dynamically linked libavcodec.
 if ! grep -q 'libavcodec' "$OUT/shairport-ldd.txt"; then
@@ -169,9 +180,9 @@ fi
 gcc -Wall -Wextra -Werror \
   $(pkg-config --cflags libavcodec libavutil) \
   /usr/local/src/check-alac-decoder.c \
-  -o "$OUT/check-alac-decoder" \
+  -o "$WORK/check-alac-decoder" \
   $(pkg-config --libs libavcodec libavutil)
-"$OUT/check-alac-decoder"
+"$WORK/check-alac-decoder"
 
 # Capture binary metadata that helps identify the actual ALAC decode path.
 # FFmpeg may be dynamically linked or statically linked, so absence from ldd
@@ -254,7 +265,7 @@ done
   echo "avahi_runtime_packages=avahi-daemon,libavahi-core7"
   echo "target=armhf / Debian 9 / glibc 2.24 baseline"
   echo "configure_flags=--with-alsa --with-avahi --with-ssl=openssl --with-pipe --with-soxr --with-airplay-2"
-  echo "soxr_runtime=libsoxr bundled in addon/lib"
+  echo "soxr_runtime=libsoxr bundled in addon/lib and resolved by shairport-sync"
   if grep -Eq 'libavcodec|libavformat' "$OUT/shairport-ldd.txt"; then
     echo "ffmpeg_linkage=dynamic (libavcodec/libavformat found by ldd)"
   elif grep -Eiq 'avcodec|avformat|ffmpeg' "$OUT/shairport-dynamic-symbols.txt" "$OUT/shairport-codec-strings.txt"; then
@@ -262,12 +273,11 @@ done
   else
     echo "ffmpeg_linkage=not-confirmed-by-binary-inspection (review alac-verification-evidence.txt and configure log)"
   fi
-  echo "aac_decoder_verification=passed; decoder and advertised sample formats recorded in aac-decoder-report.txt"
+  echo "aac_decoder_verification=passed; decoder details printed in this Actions log"
   echo "alac_decoder_verification=passed; decoder details printed in this Actions log"
   echo "alac_runtime_path=not_confirmed; decoder availability does not prove Shairport Sync selects it"
   sha256sum "$OUT/shairport-sync" "$OUT/nqptp"
 } > "$OUT/BUILD-REPORT.txt"
 
 cat "$OUT/BUILD-REPORT.txt"
-cat "$OUT/aac-decoder-report.txt"
 cat "$OUT/alac-verification-evidence.txt"
