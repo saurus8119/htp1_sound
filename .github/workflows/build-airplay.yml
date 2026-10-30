@@ -170,7 +170,7 @@ jobs:
           retention-days: 14
 
       - name: Verify release tag matches addon version
-        if: startsWith(github.ref, 'refs/tags/v') || (github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[publish-release]'))
+        if: startsWith(github.ref, 'refs/tags/v')
         shell: bash
         run: |
           set -euo pipefail
