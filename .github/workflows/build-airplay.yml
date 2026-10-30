@@ -4,7 +4,11 @@ on:
   push:
     branches: [main, master]
     tags: ['v*']
+    paths-ignore:
+      - addons/airplay/etc/shairport-sync.conf
   pull_request:
+    paths-ignore:
+      - addons/airplay/etc/shairport-sync.conf
   workflow_dispatch:
 
 permissions:
