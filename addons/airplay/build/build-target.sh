@@ -18,6 +18,7 @@ fetch() {
   [ -s "$file" ] || curl -fL --retry 3 --connect-timeout 20 "$url" -o "$file"
 }
 
+# Release 2.0.33 build; source versions remain pinned.
 # Download pinned source versions.
 fetch "https://github.com/mikebrady/shairport-sync/archive/refs/tags/${SHAIRPORT_VERSION}.tar.gz" "shairport-sync-${SHAIRPORT_VERSION}.tar.gz"
 fetch "https://github.com/mikebrady/nqptp/archive/refs/tags/${NQPTP_VERSION}.tar.gz" "nqptp-${NQPTP_VERSION}.tar.gz"
