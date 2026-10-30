@@ -27,6 +27,7 @@ WORKDIR /build
 COPY build-target.sh /usr/local/bin/build-target
 COPY uuid-generate-sha1-compat.c /usr/local/src/uuid-generate-sha1-compat.c
 COPY check-aac-fltp.c /usr/local/src/check-aac-fltp.c
+COPY check-alac-decoder.c /usr/local/src/check-alac-decoder.c
 
 RUN sed -i 's/\r$//' /usr/local/bin/build-target \
  && chmod +x /usr/local/bin/build-target
