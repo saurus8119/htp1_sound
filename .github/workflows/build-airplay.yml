@@ -62,6 +62,12 @@ jobs:
           OUT="$RUNNER_TEMP/airplay-out"
           PACKAGE_OUT="$RUNNER_TEMP/release-package"
 
+          # Verify the exact runtime configuration that will be packaged.
+          grep -Eq '^[[:space:]]*interpolation[[:space:]]*=[[:space:]]*"soxr";' addons/airplay/etc/shairport-sync.conf
+          grep -Eq '^[[:space:]]*alac_decoder[[:space:]]*=[[:space:]]*"ffmpeg";' addons/airplay/etc/shairport-sync.conf
+          echo "runtime_config_interpolation=soxr"
+          echo "runtime_config_alac_decoder=ffmpeg"
+
           VERSION="$(jq -er '.version' addons/airplay/addon.json)"
           ADDON_ID="$(jq -er '.id' addons/airplay/addon.json)"
           EXPECTED_ID="airplay2"
