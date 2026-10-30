@@ -16,6 +16,11 @@ on:
 permissions:
   contents: write
 
+# Keep only the newest build for a given branch or tag ref.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-24.04
