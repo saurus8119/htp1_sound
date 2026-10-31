@@ -1,4 +1,4 @@
-name: Build HTP-1 AirPlay 2.0 addon
+name: Build HTPlay-1 addon
 
 on:
   push:
@@ -67,11 +67,15 @@ jobs:
           OUT="$RUNNER_TEMP/airplay-out"
           PACKAGE_OUT="$RUNNER_TEMP/release-package"
 
-          # Verify the exact runtime configuration that will be packaged.
+          # SoXR must be selected. ALAC selection is intentionally left to
+          # the runtime config: explicit FFmpeg or Shairport Sync's default.
           grep -Eq '^[[:space:]]*interpolation[[:space:]]*=[[:space:]]*"soxr";' addons/airplay/etc/shairport-sync.conf
-          grep -Eq '^[[:space:]]*alac_decoder[[:space:]]*=[[:space:]]*"ffmpeg";' addons/airplay/etc/shairport-sync.conf
+          if grep -Eq '^[[:space:]]*alac_decoder[[:space:]]*=[[:space:]]*"ffmpeg";' addons/airplay/etc/shairport-sync.conf; then
+            echo "runtime_config_alac_decoder=ffmpeg"
+          else
+            echo "runtime_config_alac_decoder=automatic/default"
+          fi
           echo "runtime_config_interpolation=soxr"
-          echo "runtime_config_alac_decoder=ffmpeg"
 
           VERSION="$(jq -er '.version' addons/airplay/addon.json)"
           ADDON_ID="$(jq -er '.id' addons/airplay/addon.json)"
@@ -106,7 +110,7 @@ jobs:
 
           mkdir -p "$PACKAGE_OUT"
 
-          # Source folder stays addons/airplay; package identity is airplay2.
+          # Source folder stays addons/airplay; package identity remains airplay2.
           bash tools/pack.sh addons/airplay "$ADDON_ID" "$PACKAGE_OUT"
 
           ARCHIVE_PATH="$PACKAGE_OUT/$ARCHIVE"
@@ -195,7 +199,7 @@ jobs:
           ARCHIVE="${{ steps.package.outputs.archive }}"
           CHECKSUM="${{ steps.package.outputs.checksum }}"
           ADDON_ID="${{ steps.package.outputs.addon_id }}"
-          NOTES="Installable HTP-1 AirPlay 2.0 addon (ID: ${ADDON_ID}). The tarball contains the addon folder and runtime files. The SHA256 checksum is provided as a separate release asset."
+          NOTES="Installable HTPlay-1 addon (internal ID: ${ADDON_ID}). The tarball contains the add-on folder and runtime files. The SHA256 checksum is provided as a separate release asset."
           RELEASE_TAG="v${VERSION}"
 
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
@@ -210,7 +214,7 @@ jobs:
               "$ARCHIVE" \
               "$CHECKSUM" \
               --target "$GITHUB_SHA" \
-              --title "HTP-1 AirPlay 2.0 ${VERSION}" \
+              --title "HTPlay-1 ${VERSION}" \
               --notes "$NOTES"
           fi
 
@@ -245,6 +249,6 @@ jobs:
           git add index.json
           if ! git diff --cached --quiet; then
             git commit \
-              -m "Publish AirPlay 2.0 addon ${VERSION} in catalog"
+              -m "Publish HTPlay-1 addon ${VERSION} in catalog"
             git push origin main
           fi
