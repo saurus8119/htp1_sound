@@ -1,10 +1,11 @@
-name: Package AirPlay config-only release
+name: Package HTPlay-1 config/metadata release
 
 on:
   push:
     branches: [main, master]
     paths:
       - addons/airplay/etc/shairport-sync.conf
+      - addons/airplay/addon.json
   workflow_dispatch:
 
 permissions:
@@ -21,7 +22,7 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Download latest complete AirPlay release
+      - name: Download latest complete HTPlay-1 release
         id: base
         env:
           GH_TOKEN: ${{ github.token }}
@@ -45,7 +46,7 @@ jobs:
           echo "base_tag=$BASE_TAG" >> "$GITHUB_OUTPUT"
           echo "archive=$ARCHIVE" >> "$GITHUB_OUTPUT"
 
-      - name: Replace config and package without compiling
+      - name: Sync config and display metadata without compiling
         id: package
         shell: bash
         run: |
@@ -63,8 +64,14 @@ jobs:
           test -s "$ADDON/bin/nqptp"
           test -d "$ADDON/lib"
           test -s "$GITHUB_WORKSPACE/addons/airplay/etc/shairport-sync.conf"
+          test -s "$GITHUB_WORKSPACE/addons/airplay/addon.json"
 
-          # Replace only the config file; retain all runtime files from the last release.
+          # Keep the installed add-on manifest synchronized with the source.
+          # The stable package ID and service identifiers remain unchanged.
+          install -m 0644 \
+            "$GITHUB_WORKSPACE/addons/airplay/addon.json" \
+            "$ADDON/addon.json"
+
           install -m 0644 \
             "$GITHUB_WORKSPACE/addons/airplay/etc/shairport-sync.conf" \
             "$ADDON/etc/shairport-sync.conf"
@@ -100,19 +107,24 @@ jobs:
           grep -Fxq 'airplay2/units/airplay2.service' "$LIST"
           grep -Fxq 'airplay2/units/nqptp-airplay2.service' "$LIST"
 
-          # Verify the config-only package retains the exact executable binaries.
+          # Verify config/metadata-only packaging retains the exact binaries.
           for binary in shairport-sync nqptp; do
             BASE_HASH="$(tar -xOzf "$BASE_ARCHIVE" "airplay2/bin/$binary" | sha256sum | cut -d' ' -f1)"
             NEW_HASH="$(tar -xOzf "$ARCHIVE" "airplay2/bin/$binary" | sha256sum | cut -d' ' -f1)"
             test "$BASE_HASH" = "$NEW_HASH"
           done
 
+          # Confirm the packaged display names and stable internal ID.
+          tar -xOzf "$ARCHIVE" airplay2/addon.json |
+            jq -e --arg id airplay2 --arg label HTPlay-1 \
+              '.id == $id and .label == $label and .input.label == $label' >/dev/null
+
           echo "version=$NEXT_VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=$NEXT_TAG" >> "$GITHUB_OUTPUT"
           echo "archive=$ARCHIVE" >> "$GITHUB_OUTPUT"
           echo "checksum=$CHECKSUM" >> "$GITHUB_OUTPUT"
 
-      - name: Publish config-only release
+      - name: Publish HTPlay-1 release
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -124,8 +136,8 @@ jobs:
           CHECKSUM="${{ steps.package.outputs.checksum }}"
 
           gh release create "$TAG" "$ARCHIVE" "$CHECKSUM" \
-            --title "HTP-1 AirPlay 2.0 $VERSION" \
-            --notes "Config-only AirPlay release. Reuses binaries and runtime files from ${{ steps.base.outputs.base_tag }}; only shairport-sync.conf and the add-on version were updated. No software compilation was performed."
+            --title "HTPlay-1 $VERSION" \
+            --notes "Config/metadata-only HTPlay-1 release. Reuses binaries and runtime files from ${{ steps.base.outputs.base_tag }}; no software compilation was performed."
 
       - name: Update add-on catalog on main
         env:
@@ -152,6 +164,6 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add addons/airplay/addon.json index.json
           if ! git diff --cached --quiet; then
-            git commit -m "Publish AirPlay config-only addon $VERSION in catalog"
+            git commit -m "Publish HTPlay-1 addon $VERSION in catalog"
             git push origin main
           fi
