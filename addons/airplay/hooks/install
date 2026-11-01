@@ -17,6 +17,13 @@ if ! command -v smbclient >/dev/null 2>&1; then
   exit 1
 fi
 
+# Keep the local upload settings readable only by root.
+UPLOAD_CONFIG="$ADDON_DIR/etc/htplay1.conf"
+if [ -f "$UPLOAD_CONFIG" ]; then
+  chown root:root "$UPLOAD_CONFIG"
+  chmod 600 "$UPLOAD_CONFIG"
+fi
+
 # AirPlay pulls Avahi in through Requires=; do not leave it enabled at boot.
 systemctl disable avahi-daemon.service avahi-daemon.socket >/dev/null 2>&1 || true
 systemctl daemon-reload >/dev/null 2>&1 || true
