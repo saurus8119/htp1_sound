@@ -91,6 +91,8 @@ jobs:
           test -d "$OUT/debs"
           compgen -G "$OUT/debs/smbclient_*.deb" >/dev/null
           test -s addons/airplay/bin/upload-logs.sh
+          test -s addons/airplay/bin/capture-logs.sh
+          test -s addons/airplay/units/htplay1-log-capture.service
 
           install -m 0755 "$OUT/shairport-sync" addons/airplay/bin/shairport-sync
           install -m 0755 "$OUT/nqptp" addons/airplay/bin/nqptp
@@ -117,10 +119,12 @@ jobs:
           grep -Fxq 'airplay2/bin/shairport-sync' "$LIST"
           grep -Fxq 'airplay2/bin/nqptp' "$LIST"
           grep -Fxq 'airplay2/bin/upload-logs.sh' "$LIST"
+          grep -Fxq 'airplay2/bin/capture-logs.sh' "$LIST"
           grep -Eq '^airplay2/debs/smbclient_[^/]+\.deb$' "$LIST"
           grep -Fxq 'airplay2/etc/shairport-sync.conf' "$LIST"
           grep -Fxq 'airplay2/units/airplay2.service' "$LIST"
           grep -Fxq 'airplay2/units/nqptp-airplay2.service' "$LIST"
+          grep -Fxq 'airplay2/units/htplay1-log-capture.service' "$LIST"
           grep -Fxq 'airplay2/units/avahi-daemon.service.d/htp1.conf' "$LIST"
 
           # Every bundled runtime package must target ARMHF or be architecture-independent.
