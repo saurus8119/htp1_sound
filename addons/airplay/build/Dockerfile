@@ -40,6 +40,8 @@ RUN apt-get -o Acquire::Check-Valid-Until=false update \
  && apt-get download avahi-daemon libavahi-core7 \
  && dpkg-deb -f avahi-daemon_*.deb Package Architecture \
  && dpkg-deb -f libavahi-core7_*.deb Package Architecture \
+ && apt-get install -y --download-only --no-install-recommends smbclient \
+ && cp -a /var/cache/apt/archives/*.deb /opt/htp1-debs/ \
  && rm -rf /var/lib/apt/lists/*
 
 CMD ["/usr/local/bin/build-target"]
