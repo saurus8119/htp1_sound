@@ -92,6 +92,7 @@ jobs:
           test -s "$OUT/nqptp"
           test -d "$OUT/lib"
           test -d "$OUT/debs"
+          test -s addons/airplay/bin/upload-logs.sh
 
           install -m 0755 \
             "$OUT/shairport-sync" \
@@ -125,6 +126,7 @@ jobs:
           grep -Fxq 'airplay2/addon.json' "$LIST"
           grep -Fxq 'airplay2/bin/shairport-sync' "$LIST"
           grep -Fxq 'airplay2/bin/nqptp' "$LIST"
+          grep -Fxq 'airplay2/bin/upload-logs.sh' "$LIST"
           grep -Fxq 'airplay2/etc/shairport-sync.conf' "$LIST"
           grep -Fxq 'airplay2/units/airplay2.service' "$LIST"
           grep -Fxq 'airplay2/units/nqptp-airplay2.service' "$LIST"
