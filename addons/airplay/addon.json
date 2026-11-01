@@ -10,8 +10,7 @@
   },
   "units": {
     "airplay2.service": "link",
-    "nqptp-airplay2.service": "link",
-    "htplay1-log-capture.service": "link"
+    "nqptp-airplay2.service": "link"
   },
   "service": {
     "unit": "airplay2.service",
