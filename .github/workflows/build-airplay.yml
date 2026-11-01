@@ -16,6 +16,7 @@ on:
 permissions:
   contents: write
 
+# Keep only the newest build for a given branch or tag ref.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -66,6 +67,8 @@ jobs:
           OUT="$RUNNER_TEMP/airplay-out"
           PACKAGE_OUT="$RUNNER_TEMP/release-package"
 
+          # SoXR must be selected. ALAC selection is intentionally left to
+          # the runtime config: explicit FFmpeg or Shairport Sync's default.
           grep -Eq '^[[:space:]]*interpolation[[:space:]]*=[[:space:]]*"soxr";' addons/airplay/etc/shairport-sync.conf
           if grep -Eq '^[[:space:]]*alac_decoder[[:space:]]*=[[:space:]]*"ffmpeg";' addons/airplay/etc/shairport-sync.conf; then
             echo "runtime_config_alac_decoder=ffmpeg"
@@ -90,16 +93,24 @@ jobs:
           test -d "$OUT/lib"
           test -d "$OUT/debs"
 
-          install -m 0755 "$OUT/shairport-sync" addons/airplay/bin/shairport-sync
-          install -m 0755 "$OUT/nqptp" addons/airplay/bin/nqptp
+          install -m 0755 \
+            "$OUT/shairport-sync" \
+            addons/airplay/bin/shairport-sync
+          install -m 0755 \
+            "$OUT/nqptp" \
+            addons/airplay/bin/nqptp
 
           rm -rf addons/airplay/lib addons/airplay/debs
           cp -a "$OUT/lib" addons/airplay/lib
           cp -a "$OUT/debs" addons/airplay/debs
 
-          chmod 0755 addons/airplay/bin/* addons/airplay/hooks/*
+          chmod 0755 \
+            addons/airplay/bin/* \
+            addons/airplay/hooks/*
 
           mkdir -p "$PACKAGE_OUT"
+
+          # Source folder stays addons/airplay; package identity remains airplay2.
           bash tools/pack.sh addons/airplay "$ADDON_ID" "$PACKAGE_OUT"
 
           ARCHIVE_PATH="$PACKAGE_OUT/$ARCHIVE"
@@ -119,20 +130,30 @@ jobs:
           grep -Fxq 'airplay2/units/nqptp-airplay2.service' "$LIST"
           grep -Fxq 'airplay2/units/avahi-daemon.service.d/htp1.conf' "$LIST"
 
+          # Legacy services must not be shipped alongside the AirPlay 2 pair.
           if grep -Eq '^airplay2/units/(airplay|nqptp)\.service$' "$LIST"; then
             echo "Legacy AirPlay/NQPTP unit unexpectedly included in package." >&2
             exit 1
           fi
 
+          # Confirm the archived manifest has the same ID and version.
           tar -xOzf "$ARCHIVE_PATH" airplay2/addon.json |
-            jq -e --arg id "$ADDON_ID" --arg version "$VERSION" '.id == $id and .version == $version' >/dev/null
+            jq -e --arg id "$ADDON_ID" --arg version "$VERSION" \
+              '.id == $id and .version == $version' >/dev/null
 
-          if grep -Eq '(^|/)\.\.(/|$)|^/|(^|/)(htp1-addon-[^/]*\.tar\.gz|SHA256SUMS|[^/]+\.tar\.gz\.sha256)$' "$LIST"; then
+          # Reject unsafe paths and nested release artifacts without
+          # mistakenly rejecting the valid "airplay2" package name.
+          if grep -Eq \
+            '(^|/)\.\.(/|$)|^/|(^|/)(htp1-addon-[^/]*\.tar\.gz|SHA256SUMS|[^/]+\.tar\.gz\.sha256)$' \
+            "$LIST"; then
             echo "Unexpected nested archive, checksum, or unsafe path." >&2
             exit 1
           fi
 
-          (cd "$PACKAGE_OUT" && sha256sum -c "$ARCHIVE.sha256")
+          (
+            cd "$PACKAGE_OUT"
+            sha256sum -c "$ARCHIVE.sha256"
+          )
 
           echo "archive=$ARCHIVE_PATH" >> "$GITHUB_OUTPUT"
           echo "checksum=$CHECKSUM_PATH" >> "$GITHUB_OUTPUT"
@@ -157,8 +178,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
           VERSION="${{ steps.package.outputs.version }}"
           EXPECTED_TAG="v${VERSION}"
+
           if [ "$GITHUB_REF_NAME" != "$EXPECTED_TAG" ]; then
             echo "Tag $GITHUB_REF_NAME must match $EXPECTED_TAG" >&2
             exit 1
@@ -171,6 +194,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
           VERSION="${{ steps.package.outputs.version }}"
           ARCHIVE="${{ steps.package.outputs.archive }}"
           CHECKSUM="${{ steps.package.outputs.checksum }}"
@@ -179,10 +203,19 @@ jobs:
           RELEASE_TAG="v${VERSION}"
 
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            gh release upload "$RELEASE_TAG" "$ARCHIVE" "$CHECKSUM" --clobber
+            echo "Release $RELEASE_TAG already exists; uploading assets."
+            gh release upload "$RELEASE_TAG" \
+              "$ARCHIVE" \
+              "$CHECKSUM" \
+              --clobber
           else
-            gh release create "$RELEASE_TAG" "$ARCHIVE" "$CHECKSUM" \
-              --target "$GITHUB_SHA" --title "HTPlay-1 ${VERSION}" --notes "$NOTES"
+            echo "Creating release $RELEASE_TAG."
+            gh release create "$RELEASE_TAG" \
+              "$ARCHIVE" \
+              "$CHECKSUM" \
+              --target "$GITHUB_SHA" \
+              --title "HTPlay-1 ${VERSION}" \
+              --notes "$NOTES"
           fi
 
       - name: Update catalog on main
@@ -192,22 +225,30 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
           VERSION="${{ steps.package.outputs.version }}"
           ADDON_ID="${{ steps.package.outputs.addon_id }}"
           ARCHIVE_NAME="htp1-addon-${ADDON_ID}-${VERSION}.tar.gz"
 
           mkdir -p "$RUNNER_TEMP/catalog-package"
-          cp "${{ steps.package.outputs.archive }}" "$RUNNER_TEMP/catalog-package/$ARCHIVE_NAME"
+          cp "${{ steps.package.outputs.archive }}" \
+            "$RUNNER_TEMP/catalog-package/$ARCHIVE_NAME"
+
           git fetch origin main
           git checkout -B main origin/main
+
           mkdir -p dist
           cp "$RUNNER_TEMP/catalog-package/$ARCHIVE_NAME" dist/
+
           bash tools/index.sh "v${VERSION}" dist
 
           git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
           git add index.json
           if ! git diff --cached --quiet; then
-            git commit -m "Publish HTPlay-1 addon ${VERSION} in catalog"
+            git commit \
+              -m "Publish HTPlay-1 addon ${VERSION} in catalog"
             git push origin main
           fi
