@@ -25,6 +25,7 @@ The script does not change audio configuration or restart services. It prompts
 for an SMB username and password, or accepts a blank username for guest access.
 Credentials are used only for that upload and are not saved.
 
-The HTP-1 must have the `smbclient` command installed. The uploader checks for
-it and stops with a clear message if it is unavailable; it does not install
-packages or alter the HTP-1 operating system.
+The add-on build bundles the Debian 9 ARMHF `smbclient` package and its resolved
+runtime dependencies. The install hook installs those packages with the add-on
+and verifies that `smbclient` is available. No separate manual package install
+is required.
