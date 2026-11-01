@@ -1,4 +1,22 @@
 #!/bin/bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+ADDON_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# Install the add-on's bundled Debian 9 ARMHF runtime packages. This includes
+# Avahi and smbclient plus the dependency closure resolved in the build image.
+shopt -s nullglob
+RUNTIME_DEBS=("$ADDON_DIR"/debs/*.deb)
+if (("${#RUNTIME_DEBS[@]}" > 0)); then
+  dpkg -i "${RUNTIME_DEBS[@]}"
+fi
+
+if ! command -v smbclient >/dev/null 2>&1; then
+  echo "HTPlay-1 install failed: bundled smbclient was not installed." >&2
+  exit 1
+fi
+
 # AirPlay pulls Avahi in through Requires=; do not leave it enabled at boot.
 systemctl disable avahi-daemon.service avahi-daemon.socket >/dev/null 2>&1 || true
 systemctl daemon-reload >/dev/null 2>&1 || true
