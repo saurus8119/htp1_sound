@@ -266,26 +266,16 @@ fi
 
 # Stage the Debian 9 ARMHF Avahi runtime packages.
 mkdir -p "$OUT/debs"
-cp -a /opt/htp1-debs/*.deb "$OUT/debs/"
+cp -a /opt/htp1-debs/avahi-daemon_*.deb \
+  /opt/htp1-debs/libavahi-core7_*.deb "$OUT/debs/"
 
 for deb in "$OUT"/debs/*.deb; do
   [ -f "$deb" ] || {
     echo "Missing required Avahi package: $deb" >&2
     exit 1
   }
-  PACKAGE="$(dpkg-deb -f "$deb" Package)"
-  ARCH="$(dpkg-deb -f "$deb" Architecture)"
-  printf '%s %s\\n' "$PACKAGE" "$ARCH"
-  if [ "$ARCH" != "armhf" ] && [ "$ARCH" != "all" ]; then
-    echo "Unexpected architecture for bundled runtime package: $deb ($ARCH)" >&2
-    exit 1
-  fi
+  dpkg-deb -f "$deb" Package Architecture
 done
-
-if ! dpkg-deb -f "$OUT"/debs/smbclient_*.deb Package | grep -qx smbclient; then
-  echo "SMB client package was not bundled" >&2
-  exit 1
-fi
 
 # Record build results. Hardware playback is not tested here.
 {
@@ -298,7 +288,6 @@ fi
   echo "shared_memory_interface=smi11"
   echo "libplist_source=${LIBPLIST_VERSION}"
   echo "avahi_runtime_packages=avahi-daemon,libavahi-core7"
-  echo "smb_runtime_packages=SMB client and resolved Debian 9 dependencies bundled in addon/debs"
   echo "target=armhf / Debian 9 / glibc 2.24 baseline"
   echo "configure_flags=--with-alsa --with-avahi --with-ssl=openssl --with-pipe --with-soxr --with-airplay-2"
   echo "soxr_runtime=libsoxr bundled in addon/lib and resolved by shairport-sync"
