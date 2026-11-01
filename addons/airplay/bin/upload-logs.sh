@@ -1,5 +1,5 @@
 #!/bin/bash
-# Create a diagnostic bundle and upload it to the TrueNAS SMB share.
+# Collect HTPlay-1 add-on diagnostics only and upload them to TrueNAS.
 # Run as root on the HTP-1:
 #   /var/lib/olympia/addons/airplay2/bin/upload-logs.sh
 
@@ -13,59 +13,54 @@ WORK_DIR="$(mktemp -d /tmp/htplay1-logs.XXXXXX)"
 STAMP="$(date -u +%Y%m%d-%H%M%S)"
 HOST="$(hostname 2>/dev/null || echo htp1)"
 ARCHIVE="/tmp/HTPlay-1-logs-${HOST}-${STAMP}.tar.gz"
+AUTH_FILE=""
 
 cleanup() {
   rm -rf "$WORK_DIR"
-  rm -f "${AUTH_FILE:-}"
+  [ -z "$AUTH_FILE" ] || rm -f "$AUTH_FILE"
 }
 trap cleanup EXIT
 
 if [ "$(id -u)" -ne 0 ]; then
-  echo "Run this script as root (for example, with sudo)." >&2
+  echo "Run this script as root." >&2
   exit 1
 fi
 
 if ! command -v smbclient >/dev/null 2>&1; then
-  echo "smbclient is not installed on the HTP-1; cannot upload to SMB." >&2
-  echo "No audio settings or services have been changed." >&2
+  echo "smbclient is not installed; the bundled add-on dependency may not have installed correctly." >&2
   exit 1
 fi
 
 mkdir -p "$WORK_DIR"
 
+# Record add-on identity and the active configuration only.
+if [ -r "$ADDON_DIR/addon.json" ]; then
+  cp "$ADDON_DIR/addon.json" "$WORK_DIR/addon.json"
+fi
+
+if [ -r "$ADDON_DIR/etc/shairport-sync.conf" ]; then
+  sed -E \
+    -e '/^[[:space:]]*(password|mdns_backend|username)[[:space:]]*=/I s/(=[[:space:]]*).*/= "[REDACTED]";/' \
+    "$ADDON_DIR/etc/shairport-sync.conf" > "$WORK_DIR/shairport-sync.conf"
+fi
+
 {
   echo "HTPlay-1 diagnostic bundle"
   echo "Collected UTC: $(date -u -Iseconds 2>/dev/null || date -u)"
-  echo "Hostname: $HOST"
+  echo "Addon version: $(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\\([^"]*\\)".*/\\1/p' "$WORK_DIR/addon.json" 2>/dev/null | head -n 1)"
   echo
-  echo "=== OS ==="
-  uname -a
-  cat /etc/debian_version 2>/dev/null || true
-  echo
-  echo "=== Uptime and memory ==="
-  uptime
-  free -m 2>/dev/null || true
-  echo
-  echo "=== Filesystems ==="
-  df -h
-} > "$WORK_DIR/system-info.txt" 2>&1
+  echo "Scope: HTPlay-1 add-on services only."
+  echo "No HTP-1 platform logs, kernel logs, Avahi logs, or general system inventory are collected."
+} > "$WORK_DIR/README.txt"
 
-for unit in airplay2.service nqptp-airplay2.service avahi-daemon.service; do
+for unit in airplay2.service nqptp-airplay2.service; do
   systemctl status "$unit" --no-pager > "$WORK_DIR/${unit}.status.txt" 2>&1 || true
   journalctl -u "$unit" --since "24 hours ago" --no-pager -o short-iso \
     > "$WORK_DIR/${unit}.log" 2>&1 || true
 done
 
-dmesg > "$WORK_DIR/dmesg.txt" 2>&1 || true
-
-# Include the active Shairport configuration, masking any password setting.
-if [ -r "$ADDON_DIR/etc/shairport-sync.conf" ]; then
-  sed -E '/^[[:space:]]*password[[:space:]]*=/I s/(=[[:space:]]*).*/= "[REDACTED]";/' \
-    "$ADDON_DIR/etc/shairport-sync.conf" > "$WORK_DIR/shairport-sync.conf"
-fi
-
 tar -czf "$ARCHIVE" -C "$WORK_DIR" .
-echo "Created diagnostic archive: $ARCHIVE"
+echo "Created HTPlay-1 diagnostic archive: $ARCHIVE"
 
 printf 'TrueNAS SMB username (leave blank for guest access): '
 IFS= read -r SMB_USER
