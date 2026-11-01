@@ -39,7 +39,23 @@ fi
 
 # Read simple key=value settings without sourcing or executing the config file.
 read_setting() {
-  sed -nE "s/^[[:space:]]*$1[[:space:]]*=[[:space:]]*\\\"?([^\\\"]*)\\\"?[[:space:]]*(#.*)?$/\\1/p" "$CONFIG_FILE" | head -n 1
+  awk -v key="$1" '
+    {
+      separator = index($0, "=")
+      if (!separator) next
+      name = substr($0, 1, separator - 1)
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", name)
+      if (name != key) next
+      value = substr($0, separator + 1)
+      sub(/^[[:space:]]+/, "", value)
+      sub(/[[:space:]]+$/, "", value)
+      sub(/^"/, "", value)
+      sub(/"$/, "", value)
+      sub(/[[:space:]]+#.*$/, "", value)
+      print value
+      exit
+    }
+  ' "$CONFIG_FILE"
 }
 
 SMB_USER="$(read_setting audio)"
