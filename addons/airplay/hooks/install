@@ -4,16 +4,40 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ADDON_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-# Install the add-on's bundled Debian 9 ARMHF runtime packages.
+# Avahi is required for AirPlay discovery. Install its bundled packages as
+# part of the normal add-on setup.
 shopt -s nullglob
-RUNTIME_DEBS=("$ADDON_DIR"/debs/*.deb)
-if (("${#RUNTIME_DEBS[@]}" > 0)); then
-  dpkg -i "${RUNTIME_DEBS[@]}"
-fi
-
-if ! command -v smbclient >/dev/null 2>&1; then
-  echo "HTPlay-1 install failed: bundled smbclient was not installed." >&2
+AVAHI_DEBS=(
+  "$ADDON_DIR"/debs/avahi-daemon_*.deb
+  "$ADDON_DIR"/debs/libavahi-core7_*.deb
+)
+if (("${#AVAHI_DEBS[@]}" != 2)); then
+  echo "HTPlay-1 install failed: required bundled Avahi packages are missing." >&2
   exit 1
+fi
+dpkg -i "${AVAHI_DEBS[@]}"
+
+# SMB upload is optional. Keep its dependency installation separate from the
+# required AirPlay setup so an SMB package/dependency problem cannot roll back
+# an otherwise usable HTPlay-1 installation.
+SMB_DEBS=()
+for deb in "$ADDON_DIR"/debs/*.deb; do
+  case "$deb" in
+    */avahi-daemon_*.deb|*/libavahi-core7_*.deb) ;;
+    *) SMB_DEBS+=("$deb") ;;
+  esac
+done
+
+if (("${#SMB_DEBS[@]}" > 0)); then
+  if dpkg -i "${SMB_DEBS[@]}"; then
+    if ! command -v smbclient >/dev/null 2>&1; then
+      echo "HTPlay-1: SMB packages installed but smbclient is unavailable; log upload is disabled." >&2
+    fi
+  else
+    echo "HTPlay-1: optional SMB packages could not be installed; AirPlay will continue without log upload." >&2
+  fi
+else
+  echo "HTPlay-1: no optional SMB packages are bundled; log upload is disabled." >&2
 fi
 
 UPLOAD_CONFIG="$ADDON_DIR/etc/htplay1.conf"
