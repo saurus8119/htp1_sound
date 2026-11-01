@@ -82,10 +82,10 @@ if [ -n "$SMB_USER" ]; then
   } > "$AUTH_FILE"
   unset SMB_PASS
   smbclient "//${SMB_SERVER}/${SMB_SHARE}" -A "$AUTH_FILE" \
-    -c "cd ${SMB_FOLDER}; put ${ARCHIVE##*/}"
+    -c "cd ${SMB_FOLDER}; put ${ARCHIVE} ${ARCHIVE##*/}"
 else
   smbclient "//${SMB_SERVER}/${SMB_SHARE}" -N \
-    -c "cd ${SMB_FOLDER}; put ${ARCHIVE##*/}"
+    -c "cd ${SMB_FOLDER}; put ${ARCHIVE} ${ARCHIVE##*/}"
 fi < /dev/null
 
 echo "Upload completed: //${SMB_SERVER}/${SMB_SHARE}/${SMB_FOLDER}/${ARCHIVE##*/}"
