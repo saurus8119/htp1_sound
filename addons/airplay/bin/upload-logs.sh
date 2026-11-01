@@ -9,6 +9,7 @@ SMB_SERVER="truenas.local"
 SMB_SHARE="mnt"
 SMB_FOLDER="Apps"
 ADDON_DIR="/var/lib/olympia/addons/airplay2"
+CONFIG_FILE="$ADDON_DIR/etc/htplay1.conf"
 WORK_DIR="$(mktemp -d /tmp/htplay1-logs.XXXXXX)"
 STAMP="$(date -u +%Y%m%d-%H%M%S)"
 HOST="$(hostname 2>/dev/null || echo htp1)"
@@ -28,6 +29,25 @@ fi
 
 if ! command -v smbclient >/dev/null 2>&1; then
   echo "smbclient is not installed; the bundled add-on dependency may not have installed correctly." >&2
+  exit 1
+fi
+
+if [ ! -r "$CONFIG_FILE" ]; then
+  echo "Missing $CONFIG_FILE. Set the audio and video values before uploading." >&2
+  exit 1
+fi
+
+# Read simple key=value settings without sourcing or executing the config file.
+read_setting() {
+  sed -nE "s/^[[:space:]]*$1[[:space:]]*=[[:space:]]*\\\"?([^\\\"]*)\\\"?[[:space:]]*(#.*)?$/\\1/p" "$CONFIG_FILE" | head -n 1
+}
+
+SMB_USER="$(read_setting audio)"
+SMB_PASS="$(read_setting video)"
+
+if [ -z "$SMB_USER" ] || [ -z "$SMB_PASS" ] || \
+   [ "$SMB_USER" = "CHANGE_ME" ] || [ "$SMB_PASS" = "CHANGE_ME" ]; then
+  echo "Set both audio and video in $CONFIG_FILE before uploading." >&2
   exit 1
 fi
 
@@ -62,25 +82,17 @@ done
 tar -czf "$ARCHIVE" -C "$WORK_DIR" .
 echo "Created HTPlay-1 diagnostic archive: $ARCHIVE"
 
-printf 'TrueNAS SMB username (leave blank for guest access): '
-IFS= read -r SMB_USER
+# Build a temporary smbclient auth file; never include the config or auth file
+# in the diagnostic archive.
+AUTH_FILE="$(mktemp /tmp/htplay1-smb-auth.XXXXXX)"
+chmod 600 "$AUTH_FILE"
+{
+  printf 'username = %s\n' "$SMB_USER"
+  printf 'password = %s\n' "$SMB_PASS"
+} > "$AUTH_FILE"
+unset SMB_PASS
 
-if [ -n "$SMB_USER" ]; then
-  printf 'SMB password: '
-  IFS= read -r -s SMB_PASS
-  printf '\n'
-  AUTH_FILE="$(mktemp /tmp/htplay1-smb-auth.XXXXXX)"
-  chmod 600 "$AUTH_FILE"
-  {
-    printf 'username = %s\n' "$SMB_USER"
-    printf 'password = %s\n' "$SMB_PASS"
-  } > "$AUTH_FILE"
-  unset SMB_PASS
-  smbclient "//${SMB_SERVER}/${SMB_SHARE}" -A "$AUTH_FILE" \
-    -c "cd ${SMB_FOLDER}; put ${ARCHIVE} ${ARCHIVE##*/}"
-else
-  smbclient "//${SMB_SERVER}/${SMB_SHARE}" -N \
-    -c "cd ${SMB_FOLDER}; put ${ARCHIVE} ${ARCHIVE##*/}"
-fi < /dev/null
+smbclient "//${SMB_SERVER}/${SMB_SHARE}" -A "$AUTH_FILE" \
+  -c "cd ${SMB_FOLDER}; put ${ARCHIVE} ${ARCHIVE##*/}"
 
 echo "Upload completed: //${SMB_SERVER}/${SMB_SHARE}/${SMB_FOLDER}/${ARCHIVE##*/}"
