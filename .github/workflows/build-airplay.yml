@@ -92,6 +92,7 @@ jobs:
           test -s "$OUT/nqptp"
           test -d "$OUT/lib"
           test -d "$OUT/debs"
+          compgen -G "$OUT/debs/smbclient_*.deb" >/dev/null
           test -s addons/airplay/bin/upload-logs.sh
 
           install -m 0755 \
@@ -127,6 +128,134 @@ jobs:
           grep -Fxq 'airplay2/bin/shairport-sync' "$LIST"
           grep -Fxq 'airplay2/bin/nqptp' "$LIST"
           grep -Fxq 'airplay2/bin/upload-logs.sh' "$LIST"
+          grep -Eq '^airplay2/debs/smbclient_[^/]+\\.deb          grep -Fxq 'airplay2/etc/shairport-sync.conf' "$LIST"
+          grep -Fxq 'airplay2/units/airplay2.service' "$LIST"
+          grep -Fxq 'airplay2/units/nqptp-airplay2.service' "$LIST"
+          grep -Fxq 'airplay2/units/avahi-daemon.service.d/htp1.conf' "$LIST"
+
+          # Legacy services must not be shipped alongside the AirPlay 2 pair.
+          if grep -Eq '^airplay2/units/(airplay|nqptp)\.service$' "$LIST"; then
+            echo "Legacy AirPlay/NQPTP unit unexpectedly included in package." >&2
+            exit 1
+          fi
+
+          # Confirm the archived manifest has the same ID and version.
+          tar -xOzf "$ARCHIVE_PATH" airplay2/addon.json |
+            jq -e --arg id "$ADDON_ID" --arg version "$VERSION" \
+              '.id == $id and .version == $version' >/dev/null
+
+          # Reject unsafe paths and nested release artifacts without
+          # mistakenly rejecting the valid "airplay2" package name.
+          if grep -Eq \
+            '(^|/)\.\.(/|$)|^/|(^|/)(htp1-addon-[^/]*\.tar\.gz|SHA256SUMS|[^/]+\.tar\.gz\.sha256)$' \
+            "$LIST"; then
+            echo "Unexpected nested archive, checksum, or unsafe path." >&2
+            exit 1
+          fi
+
+          (
+            cd "$PACKAGE_OUT"
+            sha256sum -c "$ARCHIVE.sha256"
+          )
+
+          echo "archive=$ARCHIVE_PATH" >> "$GITHUB_OUTPUT"
+          echo "checksum=$CHECKSUM_PATH" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "addon_id=$ADDON_ID" >> "$GITHUB_OUTPUT"
+
+          echo "Verified installable archive: $ARCHIVE_PATH"
+          echo "Verified checksum: $CHECKSUM_PATH"
+
+      - name: Upload installable addon for testing
+        uses: actions/upload-artifact@v4
+        with:
+          name: htp1-addon-${{ steps.package.outputs.addon_id }}-${{ steps.package.outputs.version }}
+          path: |
+            ${{ steps.package.outputs.archive }}
+            ${{ steps.package.outputs.checksum }}
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Verify release tag matches addon version
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          VERSION="${{ steps.package.outputs.version }}"
+          EXPECTED_TAG="v${VERSION}"
+
+          if [ "$GITHUB_REF_NAME" != "$EXPECTED_TAG" ]; then
+            echo "Tag $GITHUB_REF_NAME must match $EXPECTED_TAG" >&2
+            exit 1
+          fi
+
+      - name: Publish installable archive as GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          VERSION="${{ steps.package.outputs.version }}"
+          ARCHIVE="${{ steps.package.outputs.archive }}"
+          CHECKSUM="${{ steps.package.outputs.checksum }}"
+          ADDON_ID="${{ steps.package.outputs.addon_id }}"
+          NOTES="Installable HTPlay-1 addon (internal ID: ${ADDON_ID}). The tarball contains the add-on folder and runtime files. The SHA256 checksum is provided as a separate release asset."
+          RELEASE_TAG="v${VERSION}"
+
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Release $RELEASE_TAG already exists; uploading assets."
+            gh release upload "$RELEASE_TAG" \
+              "$ARCHIVE" \
+              "$CHECKSUM" \
+              --clobber
+          else
+            echo "Creating release $RELEASE_TAG."
+            gh release create "$RELEASE_TAG" \
+              "$ARCHIVE" \
+              "$CHECKSUM" \
+              --target "$GITHUB_SHA" \
+              --title "HTPlay-1 ${VERSION}" \
+              --notes "$NOTES"
+          fi
+
+      - name: Update catalog on main
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          VERSION="${{ steps.package.outputs.version }}"
+          ADDON_ID="${{ steps.package.outputs.addon_id }}"
+          ARCHIVE_NAME="htp1-addon-${ADDON_ID}-${VERSION}.tar.gz"
+
+          mkdir -p "$RUNNER_TEMP/catalog-package"
+          cp "${{ steps.package.outputs.archive }}" \
+            "$RUNNER_TEMP/catalog-package/$ARCHIVE_NAME"
+
+          git fetch origin main
+          git checkout -B main origin/main
+
+          mkdir -p dist
+          cp "$RUNNER_TEMP/catalog-package/$ARCHIVE_NAME" dist/
+
+          bash tools/index.sh "v${VERSION}" dist
+
+          git config user.name "github-actions[bot]"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add index.json
+          if ! git diff --cached --quiet; then
+            git commit \
+              -m "Publish HTPlay-1 addon ${VERSION} in catalog"
+            git push origin main
+          fi
+ "$LIST"
           grep -Fxq 'airplay2/etc/shairport-sync.conf' "$LIST"
           grep -Fxq 'airplay2/units/airplay2.service' "$LIST"
           grep -Fxq 'airplay2/units/nqptp-airplay2.service' "$LIST"
