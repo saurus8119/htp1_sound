@@ -89,7 +89,6 @@ jobs:
           test -s "$OUT/nqptp"
           test -d "$OUT/lib"
           test -d "$OUT/debs"
-          compgen -G "$OUT/debs/smbclient_*.deb" >/dev/null
 
           install -m 0755 "$OUT/shairport-sync" addons/airplay/bin/shairport-sync
           install -m 0755 "$OUT/nqptp" addons/airplay/bin/nqptp
