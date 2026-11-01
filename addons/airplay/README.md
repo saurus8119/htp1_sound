@@ -13,19 +13,18 @@ still required.
 Release 2.0.34: build and publish the installable HTP-1 addon package.
 
 
-## Uploading diagnostic logs
+## Uploading HTPlay-1 diagnostic logs
 
-The package includes `bin/upload-logs.sh`. Run it as root on the HTP-1 to
-collect the previous 24 hours of Shairport Sync, NQPTP, and Avahi journal
-entries, service status, kernel messages, and basic system information. It
-creates a timestamped archive and uploads it to
-`//truenas.local/mnt/Apps`.
+Run `bin/upload-logs.sh` as root on the HTP-1. It collects only this add-on's
+`airplay2.service` (Shairport Sync) and `nqptp-airplay2.service` (NQPTP)
+journals from the previous 24 hours, their systemd status, the add-on manifest,
+and the active Shairport configuration with credential-like settings redacted.
 
-The script does not change audio configuration or restart services. It prompts
-for an SMB username and password, or accepts a blank username for guest access.
-Credentials are used only for that upload and are not saved.
+It deliberately excludes HTP-1 platform logs, kernel messages, general system
+inventory, and Avahi logs. The script creates a timestamped archive and uploads
+it to `//truenas.local/mnt/Apps`.
 
-The add-on build bundles the Debian 9 ARMHF `smbclient` package and its resolved
-runtime dependencies. The install hook installs those packages with the add-on
-and verifies that `smbclient` is available. No separate manual package install
-is required.
+The build bundles the Debian 9 ARMHF `smbclient` package and its resolved
+runtime dependencies. The install hook installs those packages with the add-on.
+The uploader prompts for an SMB username and password, or accepts a blank
+username for guest access; credentials are not saved.
