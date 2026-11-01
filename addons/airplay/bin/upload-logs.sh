@@ -1,24 +1,30 @@
 #!/bin/bash
-# Collect HTPlay-1 add-on diagnostics only and upload them to TrueNAS.
-# Run as root on the HTP-1:
-#   /var/lib/olympia/addons/airplay2/bin/upload-logs.sh
-
+# Upload HTPlay-1 service logs only. Local logs are retained after upload.
 set -euo pipefail
 
 SMB_SERVER="truenas.local"
 SMB_SHARE="mnt"
 SMB_FOLDER="Apps"
 ADDON_DIR="/var/lib/olympia/addons/airplay2"
+LOG_DIR="$ADDON_DIR/logs"
 CONFIG_FILE="$ADDON_DIR/etc/htplay1.conf"
+MODE="${1:---all}"
+case "$MODE" in
+  --all|--incremental) ;;
+  *) echo "Usage: $0 [--all|--incremental]" >&2; exit 2 ;;
+esac
+
 WORK_DIR="$(mktemp -d /tmp/htplay1-logs.XXXXXX)"
 STAMP="$(date -u +%Y%m%d-%H%M%S)"
 HOST="$(hostname 2>/dev/null || echo htp1)"
 ARCHIVE="/tmp/HTPlay-1-logs-${HOST}-${STAMP}.tar.gz"
 AUTH_FILE=""
+declare -A NEW_OFFSETS
 
 cleanup() {
   rm -rf "$WORK_DIR"
   [ -z "$AUTH_FILE" ] || rm -f "$AUTH_FILE"
+  rm -f "$ARCHIVE"
 }
 trap cleanup EXIT
 
@@ -26,18 +32,16 @@ if [ "$(id -u)" -ne 0 ]; then
   echo "Run this script as root." >&2
   exit 1
 fi
-
-if ! command -v smbclient >/dev/null 2>&1; then
-  echo "smbclient is not installed; the bundled add-on dependency may not have installed correctly." >&2
+command -v smbclient >/dev/null 2>&1 || {
+  echo "smbclient is not installed." >&2
   exit 1
-fi
-
-if [ ! -r "$CONFIG_FILE" ]; then
-  echo "Missing $CONFIG_FILE. Set the audio and video values before uploading." >&2
+}
+[ -r "$CONFIG_FILE" ] || {
+  echo "Missing $CONFIG_FILE." >&2
   exit 1
-fi
+}
 
-# Read simple key=value settings without sourcing or executing the config file.
+# Read key=value settings without sourcing or executing the config file.
 read_setting() {
   awk -v key="$1" '
     {
@@ -60,20 +64,20 @@ read_setting() {
 
 SMB_USER="$(read_setting audio)"
 SMB_PASS="$(read_setting video)"
-
-if [ -z "$SMB_USER" ] || [ -z "$SMB_PASS" ] || \
+if [ -z "$SMB_USER" ] || [ -z "$SMB_PASS" ] ||
    [ "$SMB_USER" = "CHANGE_ME" ] || [ "$SMB_PASS" = "CHANGE_ME" ]; then
-  echo "Set both audio and video in $CONFIG_FILE before uploading." >&2
+  echo "Set both SMB settings in $CONFIG_FILE before uploading." >&2
   exit 1
 fi
 
-mkdir -p "$WORK_DIR"
+mkdir -p "$LOG_DIR" "$WORK_DIR"
+for unit in airplay2.service nqptp-airplay2.service; do
+  systemctl status "$unit" --no-pager > "$WORK_DIR/${unit}.status.txt" 2>&1 || true
+done
 
-# Record add-on identity and the active configuration only.
 if [ -r "$ADDON_DIR/addon.json" ]; then
   cp "$ADDON_DIR/addon.json" "$WORK_DIR/addon.json"
 fi
-
 if [ -r "$ADDON_DIR/etc/shairport-sync.conf" ]; then
   sed -E \
     -e '/^[[:space:]]*(password|mdns_backend|username)[[:space:]]*=/I s/(=[[:space:]]*).*/= "[REDACTED]";/' \
@@ -82,24 +86,39 @@ fi
 
 {
   echo "HTPlay-1 diagnostic bundle"
-  echo "Collected UTC: $(date -u -Iseconds 2>/dev/null || date -u)"
-  echo "Addon version: $(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\\([^"]*\\)".*/\\1/p' "$WORK_DIR/addon.json" 2>/dev/null | head -n 1)"
-  echo
-  echo "Scope: HTPlay-1 add-on services only."
-  echo "No HTP-1 platform logs, kernel logs, Avahi logs, or general system inventory are collected."
+  echo "Collected UTC: $(date -u)"
+  echo "Upload mode: $MODE"
+  echo "Scope: HTPlay-1 Shairport Sync and NQPTP add-on services only."
+  echo "No HTP-1 platform logs, kernel logs, Avahi logs, or general system inventory."
+  echo "Log files are retained locally after upload."
 } > "$WORK_DIR/README.txt"
 
-for unit in airplay2.service nqptp-airplay2.service; do
-  systemctl status "$unit" --no-pager > "$WORK_DIR/${unit}.status.txt" 2>&1 || true
-  journalctl -u "$unit" --since "24 hours ago" --no-pager -o short-iso \
-    > "$WORK_DIR/${unit}.log" 2>&1 || true
+# Startup sends complete existing local logs. Periodic uploads send only bytes
+# appended since the last successful upload; offsets advance only after SMB succeeds.
+for name in airplay2 nqptp-airplay2; do
+  source_file="$LOG_DIR/$name.log"
+  offset_file="$LOG_DIR/.uploaded-$name.offset"
+  [ -f "$source_file" ] || touch "$source_file"
+  size="$(wc -c < "$source_file" | tr -d ' ')"
+  offset=0
+  if [ "$MODE" = "--incremental" ] && [ -r "$offset_file" ]; then
+    read -r offset < "$offset_file" || offset=0
+    case "$offset" in ''|*[!0-9]*) offset=0 ;; esac
+  fi
+  if [ "$offset" -gt "$size" ]; then offset=0; fi
+  if [ "$MODE" = "--incremental" ] && [ "$size" -eq "$offset" ]; then
+    continue
+  fi
+  tail -c "+$((offset + 1))" "$source_file" > "$WORK_DIR/$name.log"
+  NEW_OFFSETS["$name"]="$size"
 done
 
-tar -czf "$ARCHIVE" -C "$WORK_DIR" .
-echo "Created HTPlay-1 diagnostic archive: $ARCHIVE"
+if [ "$MODE" = "--incremental" ] && [ "${#NEW_OFFSETS[@]}" -eq 0 ]; then
+  echo "No new HTPlay-1 log entries; nothing to upload."
+  exit 0
+fi
 
-# Build a temporary smbclient auth file; never include the config or auth file
-# in the diagnostic archive.
+tar -czf "$ARCHIVE" -C "$WORK_DIR" .
 AUTH_FILE="$(mktemp /tmp/htplay1-smb-auth.XXXXXX)"
 chmod 600 "$AUTH_FILE"
 {
@@ -111,4 +130,9 @@ unset SMB_PASS
 smbclient "//${SMB_SERVER}/${SMB_SHARE}" -A "$AUTH_FILE" \
   -c "cd ${SMB_FOLDER}; put ${ARCHIVE} ${ARCHIVE##*/}"
 
-echo "Upload completed: //${SMB_SERVER}/${SMB_SHARE}/${SMB_FOLDER}/${ARCHIVE##*/}"
+for name in "${!NEW_OFFSETS[@]}"; do
+  printf '%s\n' "${NEW_OFFSETS[$name]}" > "$LOG_DIR/.uploaded-$name.offset.tmp"
+  mv "$LOG_DIR/.uploaded-$name.offset.tmp" "$LOG_DIR/.uploaded-$name.offset"
+done
+
+echo "Uploaded HTPlay-1 log archive: //${SMB_SERVER}/${SMB_SHARE}/${SMB_FOLDER}/${ARCHIVE##*/}"
