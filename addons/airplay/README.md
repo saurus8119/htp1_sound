@@ -11,3 +11,20 @@ prove runtime library compatibility or physical playback; hardware validation is
 still required.
 
 Release 2.0.34: build and publish the installable HTP-1 addon package.
+
+
+## Uploading diagnostic logs
+
+The package includes `bin/upload-logs.sh`. Run it as root on the HTP-1 to
+collect the previous 24 hours of Shairport Sync, NQPTP, and Avahi journal
+entries, service status, kernel messages, and basic system information. It
+creates a timestamped archive and uploads it to
+`//truenas.local/mnt/Apps`.
+
+The script does not change audio configuration or restart services. It prompts
+for an SMB username and password, or accepts a blank username for guest access.
+Credentials are used only for that upload and are not saved.
+
+The HTP-1 must have the `smbclient` command installed. The uploader checks for
+it and stops with a clear message if it is unavailable; it does not install
+packages or alter the HTP-1 operating system.
