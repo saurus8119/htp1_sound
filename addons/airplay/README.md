@@ -10,9 +10,6 @@ reports. Only the `.tar.gz` is attached as the release package asset. CI cannot
 prove runtime library compatibility or physical playback; hardware validation is
 still required.
 
-Release 2.0.34: build and publish the installable HTP-1 addon package.
-
-
 ## Uploading HTPlay-1 diagnostic logs
 
 Run `bin/upload-logs.sh` as root on the HTP-1. It collects only this add-on's
@@ -26,5 +23,8 @@ it to `//truenas.local/mnt/Apps`.
 
 The build bundles the Debian 9 ARMHF `smbclient` package and its resolved
 runtime dependencies. The install hook installs those packages with the add-on.
-The uploader prompts for an SMB username and password, or accepts a blank
-username for guest access; credentials are not saved.
+For unattended upload, set `audio` to the TrueNAS SMB username and `video` to
+the SMB password in `etc/htplay1.conf`. The installer restricts that file to
+root-readable permissions. The credentials file is not included in diagnostic
+archives. Because the add-on repository and release package are public, anyone
+who can download the package can read credentials included in it.
