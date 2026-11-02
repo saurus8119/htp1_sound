@@ -17,7 +17,7 @@
     "defaultOn": true
   },
   "input": {
-    "code": "airplay",
+    "code": "airplay2",
     "label": "HTPlay-1",
     "routesTo": "i2s",
     "order": 215,
