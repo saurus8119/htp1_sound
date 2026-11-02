@@ -9,7 +9,6 @@ on:
   pull_request:
     paths-ignore:
       - addons/airplay/etc/shairport-sync.conf
-      - addons/airplay/addon.json
   workflow_dispatch:
 
 permissions:
@@ -22,6 +21,9 @@ concurrency:
 
 jobs:
   build:
+    # Config-only releases update addon.json for catalog version alignment;
+    # they reuse existing binaries and must not trigger a full ARM rebuild.
+    if: github.event_name != 'push' || !startsWith(github.event.head_commit.message, 'Publish AirPlay config-only addon ')
     runs-on: ubuntu-24.04
 
     steps:
