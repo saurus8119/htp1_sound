@@ -29,6 +29,6 @@
   },
   "ui": {
     "switch": true,
-    "page": "index.html"
+    "page": "/addons/airplay2/www/index.html"
   }
 }
