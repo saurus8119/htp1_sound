@@ -306,3 +306,7 @@ done
 
 cat "$OUT/BUILD-REPORT.txt"
 cat "$OUT/alac-verification-evidence.txt"
+
+# Build the small ARMv7 HTPlay-1 addon control service.
+gcc -Os -Wall -Wextra -Werror /usr/local/src/htplay1-control.c -o "$OUT/htplay1-control"
+file "$OUT/htplay1-control"
