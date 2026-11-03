@@ -146,6 +146,10 @@ jobs:
           grep -Fxq 'airplay2/etc/shairport-sync.conf' "$LIST"
           grep -Fxq 'airplay2/units/airplay2.service' "$LIST"
           grep -Fxq 'airplay2/units/nqptp-airplay2.service' "$LIST"
+          grep -Fxq 'airplay2/bin/update-logs.sh' "$LIST"
+          grep -Fxq 'airplay2/units/airplay2-logs.service' "$LIST"
+          grep -Fxq 'airplay2/units/airplay2-logs.timer' "$LIST"
+          grep -Fxq 'airplay2/www/index.html' "$LIST"
           grep -Fxq 'airplay2/units/avahi-daemon.service.d/htp1.conf' "$LIST"
 
           # Legacy services must not be shipped alongside the AirPlay 2 pair.
