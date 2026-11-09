@@ -18,6 +18,22 @@ UNITS = [
     "minidlna.service", "minissdpd.service", "olympia.service"
 ]
 ERROR_RE = re.compile(r"(xrun|underrun|overrun|alsa:|broken pipe|underrun|recovering|failed|failure|error|timed out|timeout)", re.I)
+_LAST_CPU = None
+
+def cpu_usage():
+    global _LAST_CPU
+    fields = read("/proc/stat").splitlines()[0].split()[1:]
+    values = [int(x) for x in fields]
+    idle = values[3] + (values[4] if len(values) > 4 else 0)
+    total = sum(values)
+    result = None
+    if _LAST_CPU is not None:
+        old_total, old_idle = _LAST_CPU
+        delta = total - old_total
+        if delta > 0:
+            result = round(100.0 * (delta - (idle - old_idle)) / delta, 1)
+    _LAST_CPU = (total, idle)
+    return result
 
 def run(args, timeout=4):
     try:
@@ -81,7 +97,7 @@ def system_status():
         "hostname": socket.gethostname(),
         "kernel": run(["uname", "-srmo"]),
         "uptime_seconds": float(uptime[0]) if uptime else None,
-        "load_average": load[:3],
+        "load_average": load[:3], "cpu_percent": cpu_usage(),
         "memory": {"total": total, "available": available, "used": total-available if total else None,
                    "percent": round(100.0*(total-available)/total, 1) if total else None},
         "swap": {"total": mem.get("SwapTotal", 0), "free": mem.get("SwapFree", 0)},
