@@ -15,7 +15,7 @@ PORT = 17822
 MAX_LOG = 120000
 UNITS = [
     "airplay2.service", "nqptp-airplay2.service", "htplay1-control.service",
-    "airplay2-logs.service", "airplay2-logs.timer", "upnp.service"
+    "airplay2-logs.timer", "upnp.service"
 ]
 ERROR_RE = re.compile(r"(xrun|underrun|overrun|alsa:|broken pipe|underrun|recovering|failed|failure|error|timed out|timeout)", re.I)
 _LAST_CPU = None
