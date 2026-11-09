@@ -6,10 +6,6 @@
   "units": {
     "htp1-inspector.service": "enable"
   },
-  "service": {
-    "unit": "htp1-inspector.service",
-    "defaultOn": true
-  },
   "ui": {
     "switch": false,
     "page": "/addons/htp1-inspector/"
