@@ -2,6 +2,7 @@
 # HTP-1 System Monitor: read-only API; Python 3.5 standard library.
 from __future__ import print_function
 import json, os, re, shutil, socket, subprocess, time
+from urllib.parse import urlparse
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from socketserver import ThreadingMixIn
 
@@ -47,7 +48,7 @@ def cpu_usage():
 def system_status():
     mem = {}
     for line in read("/proc/meminfo").splitlines():
-        m = re.match(r"([^:]+):\\s+(\\d+)", line)
+        m = re.match(r"([^:]+):\s+(\d+)", line)
         if m: mem[m.group(1)] = int(m.group(2)) * 1024
     total = mem.get("MemTotal")
     available = mem.get("MemAvailable", mem.get("MemFree",0)+mem.get("Buffers",0)+mem.get("Cached",0))
@@ -95,9 +96,16 @@ class Handler(BaseHTTPRequestHandler):
         body=json.dumps(data,separators=(",",":")).encode("utf-8")
         self.send_response(code); self.send_header("Content-Type","application/json; charset=utf-8")
         self.send_header("Content-Length",str(len(body))); self.send_header("Cache-Control","no-store")
-        self.send_header("X-Content-Type-Options","nosniff"); self.end_headers(); self.wfile.write(body)
+        self.send_header("X-Content-Type-Options","nosniff")
+        origin=self.headers.get("Origin")
+        if origin and urlparse(origin).hostname == self.headers.get("Host","").split(":")[0]:
+            self.send_header("Access-Control-Allow-Origin",origin)
+            self.send_header("Vary","Origin")
+        self.end_headers(); self.wfile.write(body)
     def do_GET(self):
         if not private_peer(self.client_address): return self.send_json({"error":"LAN access only"},403)
+        origin=self.headers.get("Origin")
+        if origin and urlparse(origin).hostname != self.headers.get("Host","").split(":")[0]: return self.send_json({"error":"origin rejected"},403)
         path=self.path.split("?",1)[0]
         if path=="/api/system": return self.send_json(system_status())
         if path=="/api/report": return self.send_json({"generated_at":time.strftime("%Y-%m-%dT%H:%M:%SZ",time.gmtime()),"system":system_status()})
