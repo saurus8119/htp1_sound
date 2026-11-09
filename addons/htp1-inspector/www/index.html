@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>HTP-1 Inspector</title>
+<style>
+:root{color-scheme:dark;font:14px/1.5 system-ui;background:#151719;color:#eee}body{max-width:1200px;margin:auto;padding:20px}header,.toolbar,.tabs,.inline{display:flex;gap:10px;align-items:center;flex-wrap:wrap}h1{font-size:23px;margin:0}h2{font-size:17px;margin:0 0 12px}section,.panel{background:#202427;border:1px solid #383e42;border-radius:9px;padding:15px;margin:12px 0}.muted{color:#aab0b4}.status{margin-left:auto}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}.metric{background:#171b1e;border:1px solid #343b40;border-radius:7px;padding:12px}.metric strong{display:block;font-size:22px;margin-top:5px}.metric small{color:#aab0b4}button,a.button{background:#30383e;color:#fff;border:1px solid #59636a;border-radius:5px;padding:8px 12px;text-decoration:none;cursor:pointer}.tab[aria-selected=true]{background:#53616b}.hidden{display:none}pre{background:#090b0c;border:1px solid #343a3e;border-radius:6px;padding:12px;max-height:48vh;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere}.good{color:#8bd49a}.bad{color:#ff9999}table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:7px;border-bottom:1px solid #3b4246}progress{width:100%;height:10px}
+</style></head><body>
+<header><h1>HTP-1 Inspector</h1><span id="connection" class="muted status">Connecting…</span></header>
+<p class="muted">Read-only system monitoring and audio diagnostics. Refreshes every 5 seconds. No audio settings or services are changed.</p>
+<nav class="tabs"><button class="tab" data-tab="system" aria-selected="true">System Monitor</button><button class="tab" data-tab="audio" aria-selected="false">Audio Diagnostics</button></nav>
+<div id="system">
+<section><div class="toolbar"><h2>System overview</h2><span class="muted status" id="sampled">—</span></div><div class="grid" id="metrics"></div></section>
+<section><h2>Storage</h2><div id="disks"></div></section>
+<section><h2>Network interfaces</h2><div id="network"></div></section>
+<section><h2>Temperatures</h2><div id="temps" class="muted">No exposed thermal sensors found.</div></section>
+</div>
+<div id="audio" class="hidden">
+<section><div class="toolbar"><h2>Audio service health</h2><span class="muted status" id="audio-window">Last 30 minutes</span></div><div id="services"></div></section>
+<section><h2>Detected audio events</h2><div class="grid" id="counts"></div><pre id="events">Loading…</pre></section>
+<section><div class="toolbar"><h2>Recent receiver logs</h2><a class="button" id="download" href="#">Download diagnostic report</a></div><pre id="logs">Loading…</pre></section>
+</div>
+<script>
+(function(){
+var api='http://'+location.hostname+':17822', $=function(id){return document.getElementById(id);}, latest=null;
+function esc(s){return String(s===null||s===undefined?'—':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function metric(label,value,sub){return '<div class="metric"><small>'+esc(label)+'</small><strong>'+esc(value)+'</strong><small>'+esc(sub||'')+'</small></div>';}
+function bytes(n){if(n===null||n===undefined)return '—';var u=['B','KB','MB','GB','TB'],i=0;while(n>=1024&&i<u.length-1){n/=1024;i++;}return n.toFixed(i?1:0)+' '+u[i];}
+function duration(s){if(s===null)return '—';var d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60);return d+'d '+h+'h '+m+'m';}
+function get(path){return fetch(api+path,{cache:'no-store'}).then(function(r){if(!r.ok)throw Error('HTTP '+r.status);return r.json();});}
+function renderSystem(d){
+$('sampled').textContent='Sampled '+d.sampled_at;
+$('metrics').innerHTML=metric('Hostname',d.hostname,'Kernel '+d.kernel)+metric('Uptime',duration(d.uptime_seconds),'Load '+(d.load_average||[]).join(' / '))+metric('Memory',d.memory.percent===null?'—':d.memory.percent+'%',bytes(d.memory.used)+' of '+bytes(d.memory.total))+metric('Swap',bytes(d.swap.total-d.swap.free),bytes(d.swap.total)+' total');
+$('disks').innerHTML=d.disks.map(function(x){return '<div class="panel"><div class="inline"><b>'+esc(x.path)+'</b><span class="status">'+esc(x.percent)+'%</span></div><progress max="100" value="'+esc(x.percent)+'"></progress><small class="muted">'+bytes(x.used)+' used / '+bytes(x.total)+' total; '+bytes(x.free)+' free</small></div>';}).join('')||'Unavailable';
+$('network').innerHTML='<table><thead><tr><th>Interface</th><th>Received</th><th>RX errors</th><th>Transmitted</th><th>TX errors</th></tr></thead><tbody>'+d.network.map(function(n){return '<tr><td>'+esc(n.interface)+'</td><td>'+bytes(n.rx_bytes)+'</td><td>'+esc(n.rx_errors)+'</td><td>'+bytes(n.tx_bytes)+'</td><td>'+esc(n.tx_errors)+'</td></tr>';}).join('')+'</tbody></table>';
+$('temps').innerHTML=d.temperatures.length?d.temperatures.map(function(t){return '<span class="metric">'+esc(t.sensor)+': <b>'+esc(t.celsius)+' °C</b></span>';}).join(' '):'No exposed thermal sensors found.';
+}
+function renderAudio(d){
+$('services').innerHTML='<table><thead><tr><th>Service</th><th>State</th></tr></thead><tbody>'+d.services.map(function(s){return '<tr><td>'+esc(s.unit)+'</td><td class="'+(s.state==='active'?'good':'bad')+'">'+esc(s.state)+'</td></tr>';}).join('')+'</tbody></table>';
+$('counts').innerHTML=metric('XRUN / underrun',d.event_counts.xrun,'ALSA buffer underruns')+metric('ALSA recovery',d.event_counts.alsa_recovery,'Recovery or unexpected state')+metric('Other errors',d.event_counts.other_errors,'Matched log events')+metric('Total matches',d.matched_events,'Across '+d.log_lines+' log lines');
+$('events').textContent=d.events.length?d.events.join('\n'):'No matching events found in the available log window.';
+$('logs').textContent=d.log||'No logs available.';
+}
+function refresh(){Promise.all([get('/api/system'),get('/api/audio')]).then(function(r){renderSystem(r[0]);renderAudio(r[1]);latest={system:r[0],audio:r[1]};$('connection').textContent='Connected';$('connection').className='good status';}).catch(function(e){$('connection').textContent='API unavailable: '+e.message;$('connection').className='bad status';});}
+document.querySelectorAll('.tab').forEach(function(b){b.addEventListener('click',function(){document.querySelectorAll('.tab').forEach(function(x){x.setAttribute('aria-selected','false');});b.setAttribute('aria-selected','true');$('system').classList.toggle('hidden',b.dataset.tab!=='system');$('audio').classList.toggle('hidden',b.dataset.tab!=='audio');});});
+$('download').addEventListener('click',function(e){e.preventDefault();get('/api/report').then(function(d){var blob=new Blob([JSON.stringify(d,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='htp1-diagnostic-report.json';a.click();URL.revokeObjectURL(url);}).catch(function(e){alert(e.message);});});
+refresh();setInterval(refresh,5000);
+})();
+</script></body></html>
