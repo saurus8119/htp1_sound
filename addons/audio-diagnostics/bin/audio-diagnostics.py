@@ -2,6 +2,7 @@
 # HTP-1 Audio Diagnostics: read-only API; Python 3.5 standard library.
 from __future__ import print_function
 import json, re, socket, subprocess, time
+from urllib.parse import urlparse
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from socketserver import ThreadingMixIn
 
@@ -55,9 +56,16 @@ class Handler(BaseHTTPRequestHandler):
         body=json.dumps(data,separators=(",",":")).encode("utf-8")
         self.send_response(code);self.send_header("Content-Type","application/json; charset=utf-8")
         self.send_header("Content-Length",str(len(body)));self.send_header("Cache-Control","no-store")
-        self.send_header("X-Content-Type-Options","nosniff");self.end_headers();self.wfile.write(body)
+        self.send_header("X-Content-Type-Options","nosniff")
+        origin=self.headers.get("Origin")
+        if origin and urlparse(origin).hostname == self.headers.get("Host","").split(":")[0]:
+            self.send_header("Access-Control-Allow-Origin",origin)
+            self.send_header("Vary","Origin")
+        self.end_headers();self.wfile.write(body)
     def do_GET(self):
         if not private_peer(self.client_address):return self.send_json({"error":"LAN access only"},403)
+        origin=self.headers.get("Origin")
+        if origin and urlparse(origin).hostname != self.headers.get("Host","").split(":")[0]:return self.send_json({"error":"origin rejected"},403)
         path=self.path.split("?",1)[0]
         if path=="/api/audio":return self.send_json(audio_status())
         if path=="/api/services":return self.send_json({"services":service_status()})
