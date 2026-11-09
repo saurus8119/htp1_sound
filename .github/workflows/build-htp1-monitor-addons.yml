@@ -1,0 +1,43 @@
+name: Validate standalone HTP-1 monitoring addons
+
+on:
+  pull_request:
+    paths:
+      - 'addons/system-monitor/**'
+      - 'addons/audio-diagnostics/**'
+      - 'tools/pack.sh'
+      - '.github/workflows/build-htp1-monitor-addons.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-and-package:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate manifests and Python sources
+        run: |
+          set -euo pipefail
+          for id in system-monitor audio-diagnostics; do
+            jq -e --arg id "$id" '.id == $id and .version == "0.1.0-beta.1" and .ui.page == ("/addons/" + $id + "/") and .units[($id + ".service")] == "enable" and .ui.switch == false' "addons/$id/addon.json"
+            python3 -m py_compile "addons/$id/bin/$id.py"
+            test -s "addons/$id/www/index.html"
+            test -s "addons/$id/units/$id.service"
+          done
+          python3 -m json.tool index.json >/dev/null
+          bash -n tools/pack.sh
+      - name: Build and verify both HTP-1 packages
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/packages"
+          for id in system-monitor audio-diagnostics; do
+            archive="$(bash tools/pack.sh "addons/$id" "$id" "$RUNNER_TEMP/packages")"
+            test -s "$archive"
+            tar -tzf "$archive" | grep -Fx "$id/addon.json"
+            tar -tzf "$archive" | grep -Fx "$id/bin/$id.py"
+            tar -tzf "$archive" | grep -Fx "$id/units/$id.service"
+            tar -tzf "$archive" | grep -Fx "$id/www/index.html"
+            (cd "$RUNNER_TEMP/packages" && sha256sum -c "$(basename "$archive").sha256")
+          done

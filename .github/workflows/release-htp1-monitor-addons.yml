@@ -1,0 +1,113 @@
+name: Build and publish HTP-1 monitoring addons
+
+on:
+  push:
+    branches:
+      - release/htp1-monitor-audio-tools-v0.1.0
+    paths:
+      - 'addons/system-monitor/**'
+      - 'addons/audio-diagnostics/**'
+      - 'tools/pack.sh'
+      - '.github/workflows/release-htp1-monitor-addons.yml'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  package-release-and-catalog:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate both addon manifests and Python sources
+        run: |
+          set -euo pipefail
+          for id in system-monitor audio-diagnostics; do
+            jq -e --arg id "$id" '.id == $id and .version == "0.1.0-beta.1" and .ui.page == ("/addons/" + $id + "/") and (.units | length == 1)' "addons/$id/addon.json"
+            python3 -m py_compile "addons/$id/bin/$id.py"
+            test -s "addons/$id/www/index.html"
+            test -s "addons/$id/units/$id.service"
+          done
+          bash -n tools/pack.sh
+
+      - name: Package both standalone addons
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          bash tools/pack.sh addons/system-monitor system-monitor dist
+          bash tools/pack.sh addons/audio-diagnostics audio-diagnostics dist
+          for id in system-monitor audio-diagnostics; do
+            archive="dist/htp1-addon-$id-0.1.0-beta.1.tar.gz"
+            test -s "$archive"
+            tar -tzf "$archive" | grep -Fx "$id/addon.json"
+            tar -tzf "$archive" | grep -Fx "$id/bin/$id.py"
+            tar -tzf "$archive" | grep -Fx "$id/units/$id.service"
+            tar -tzf "$archive" | grep -Fx "$id/www/index.html"
+            (cd dist && sha256sum -c "$(basename "$archive").sha256")
+          done
+
+      - name: Publish GitHub prerelease and both install archives
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v0.1.0-beta.1
+          target_commitish: ${{ github.sha }}
+          name: HTP-1 Monitoring Addons 0.1.0-beta.1
+          prerelease: true
+          make_latest: false
+          fail_on_unmatched_files: true
+          files: |
+            dist/htp1-addon-system-monitor-0.1.0-beta.1.tar.gz
+            dist/htp1-addon-system-monitor-0.1.0-beta.1.tar.gz.sha256
+            dist/htp1-addon-audio-diagnostics-0.1.0-beta.1.tar.gz
+            dist/htp1-addon-audio-diagnostics-0.1.0-beta.1.tar.gz.sha256
+
+      - name: Add both packages to the HTP-1 addon catalog
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json, os, time
+          index_path = "index.json"
+          with open(index_path, encoding="utf-8") as f:
+              index = json.load(f)
+          ids = {"system-monitor", "audio-diagnostics"}
+          index["addons"] = [a for a in index.get("addons", []) if a.get("id") not in ids]
+          for addon_id, label, summary in [
+              ("system-monitor", "System Monitor", "Read-only HTP-1 CPU, memory, storage, network and temperature monitoring"),
+              ("audio-diagnostics", "Audio Diagnostics", "Read-only HTPlay-1 AirPlay/NQPTP service status and recent audio error diagnostics"),
+          ]:
+              name = "htp1-addon-%s-0.1.0-beta.1.tar.gz" % addon_id
+              path = os.path.join("dist", name)
+              with open(path, "rb") as f:
+                  data = f.read()
+              index["addons"].append({
+                  "id": addon_id,
+                  "version": "0.1.0-beta.1",
+                  "label": label,
+                  "summary": summary,
+                  "url": "https://github.com/saurus8119/htp1_sound/releases/download/v0.1.0-beta.1/" + name,
+                  "sha256": hashlib.sha256(data).hexdigest(),
+                  "size": len(data),
+              })
+          index["updated"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+          with open(index_path, "w", encoding="utf-8") as f:
+              json.dump(index, f, indent=2, ensure_ascii=False)
+              f.write("\n")
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.json
+          if ! git diff --cached --quiet; then
+            git commit -m "Add System Monitor and Audio Diagnostics to addon catalog"
+            git push origin "HEAD:$GITHUB_REF_NAME"
+          fi
+          if ! gh pr view "$GITHUB_REF_NAME" --json number >/dev/null 2>&1; then
+            gh pr create --base main --head "$GITHUB_REF_NAME" \
+              --title "Add standalone HTP-1 System Monitor and Audio Diagnostics addons" \
+              --body "Adds two independently installable HTP-1 addons and their catalog entries. The packages are published as prerelease 0.1.0-beta.1. Hardware validation is still required before treating this beta as production-ready."
+          fi
