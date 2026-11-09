@@ -1,6 +1,6 @@
 {
   "name": "htp1_sound",
-  "updated": "2026-11-09T18:04:55Z",
+  "updated": "2026-11-09",
   "addons": [
     {
       "id": "airplay2",
@@ -15,24 +15,6 @@
       "url": "https://github.com/saurus8119/htp1_sound/releases/download/v2.0.71/htp1-addon-airplay2-2.0.71.tar.gz",
       "sha256": "3a0ed02ef8c3d79f765d8ba69704ec33fcfe6d2e043f99a191097921bf3f8887",
       "size": 862255
-    },
-    {
-      "id": "system-monitor",
-      "version": "0.1.0-beta.1",
-      "label": "System Monitor",
-      "summary": "Read-only HTP-1 CPU, memory, storage, network and temperature monitoring",
-      "url": "https://github.com/saurus8119/htp1_sound/releases/download/v0.1.0-beta.1/htp1-addon-system-monitor-0.1.0-beta.1.tar.gz",
-      "sha256": "423452be56b58bb067c7c9a5402f6ff96e20fc7af7db7847300ed3f8641f4d15",
-      "size": 10430
-    },
-    {
-      "id": "audio-diagnostics",
-      "version": "0.1.0-beta.1",
-      "label": "Audio Diagnostics",
-      "summary": "Read-only HTPlay-1 AirPlay/NQPTP service status and recent audio error diagnostics",
-      "url": "https://github.com/saurus8119/htp1_sound/releases/download/v0.1.0-beta.1/htp1-addon-audio-diagnostics-0.1.0-beta.1.tar.gz",
-      "sha256": "2e55738c44747ea6a889f33ba4644fc2a82c2c1afb420e534934f77a145f048c",
-      "size": 8526
     }
   ]
 }
