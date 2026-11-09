@@ -3,5 +3,15 @@
   "version": "0.1.0-dev",
   "label": "HTP-1 Inspector",
   "summary": "Read-only system monitoring and audio diagnostics",
-  "ui": {"switch": false, "page": "/addons/htp1-inspector/"}
+  "units": {
+    "htp1-inspector.service": "enable"
+  },
+  "service": {
+    "unit": "htp1-inspector.service",
+    "defaultOn": true
+  },
+  "ui": {
+    "switch": false,
+    "page": "/addons/htp1-inspector/"
+  }
 }
