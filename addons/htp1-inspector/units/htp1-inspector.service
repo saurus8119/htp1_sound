@@ -1,0 +1,17 @@
+[Unit]
+Description=HTP-1 Inspector read-only local monitoring API
+After=network.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/var/lib/olympia/addons/htp1-inspector/bin/htp1-inspector.py
+Restart=on-failure
+RestartSec=5
+PrivateTmp=true
+NoNewPrivileges=true
+ProtectHome=true
+ProtectSystem=full
+ReadOnlyPaths=/proc /sys /etc /var/log /var/lib/olympia
+[Install]
+WantedBy=multi-user.target
