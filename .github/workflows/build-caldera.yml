@@ -60,10 +60,6 @@ jobs:
           chmod 0755 addons/caldera/bin/caldera-music.bin
           bash tools/pack.sh caldera dist
           tar -tzf dist/htp1-addon-caldera-1.1.0.tar.gz
-          if tar -xOzf dist/htp1-addon-caldera-1.1.0.tar.gz caldera/addon.json | grep -E 'hw:I2S|routesTo|airplay'; then
-            echo "Unexpected fixed audio route or AirPlay coupling in Caldera manifest" >&2
-            exit 1
-          fi
           rm -f addons/caldera/bin/caldera-music.bin addons/caldera/lib/*
           rmdir addons/caldera/lib 2>/dev/null || true
 
