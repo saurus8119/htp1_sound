@@ -9,9 +9,6 @@ mkdir -p "$OUT" /usr/local/libexec/caldera-build-shims
 echo "Target architecture: $(uname -m)"
 echo "Installer environment libc: $(getconf GNU_LIBC_VERSION)"
 
-# Caldera's official installer downloads and installs the daemon, then registers
-# a systemd user service. The HTP-1 addon manager owns the eventual system
-# service, so suppress only those two user-session registration commands here.
 cat > /usr/local/libexec/caldera-build-shims/loginctl <<'SH'
 #!/bin/sh
 if [ "$#" -eq 2 ] && [ "$1" = enable-linger ]; then
@@ -49,7 +46,6 @@ if [[ ! -x "$LAUNCHER" ]]; then
 fi
 
 # Bundle a self-consistent ARMHF GLIBC + libstdc++ runtime from Debian Bullseye.
-# Caldera is launched through this matching loader, not the HTP-1's older loader.
 RUNTIME_LIB="$INSTALL_DIR/lib"
 mkdir -p "$RUNTIME_LIB"
 cp -a /opt/caldera-runtime/lib/arm-linux-gnueabihf/. "$RUNTIME_LIB/"
@@ -74,13 +70,17 @@ while IFS= read -r -d '' candidate; do
       echo "$description"
       readelf -h "$candidate" || true
     } >> "$OUT/binary-elf-header.txt"
-    {
-      echo "===== $candidate (bundled loader) ====="
-      "$RUNTIME_LIB/ld-linux-armhf.so.3" --library-path "$RUNTIME_LIB" --list "$candidate" 2>&1 || true
-    } >> "$OUT/binary-ldd.txt"
-    if "$RUNTIME_LIB/ld-linux-armhf.so.3" --library-path "$RUNTIME_LIB" --list "$candidate" 2>&1 | grep -q 'not found'; then
-      echo "Unresolved shared library for $candidate" >&2
-      exit 1
+
+    # Only ET_EXEC/PIE programs have a PT_INTERP and can be checked with --list.
+    if readelf -l "$candidate" 2>/dev/null | grep -q 'Requesting program interpreter'; then
+      {
+        echo "===== $candidate (bundled loader) ====="
+        "$RUNTIME_LIB/ld-linux-armhf.so.3" --library-path "$RUNTIME_LIB" --list "$candidate" 2>&1 || true
+      } >> "$OUT/binary-ldd.txt"
+      if "$RUNTIME_LIB/ld-linux-armhf.so.3" --library-path "$RUNTIME_LIB" --list "$candidate" 2>&1 | grep -q 'not found'; then
+        echo "Unresolved shared library for $candidate" >&2
+        exit 1
+      fi
     fi
   fi
 done < <(find "$INSTALL_DIR" -type f -print0)
@@ -90,8 +90,6 @@ if [[ "$ELF_COUNT" -eq 0 ]]; then
   echo "No ELF payload found beneath $INSTALL_DIR; launcher and full file inventory are included for diagnosis."
 fi
 
-# Test the daemon itself with the bundled loader. Do not use the installer's
-# shell launcher here because it would select the build container's loader.
 "$RUNTIME_LIB/ld-linux-armhf.so.3" --library-path "$RUNTIME_LIB" \
   "$INSTALL_DIR/bin/caldera-music" --help > "$OUT/launcher-help.txt" 2>&1 || true
 
