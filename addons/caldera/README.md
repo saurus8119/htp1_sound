@@ -5,18 +5,20 @@ HTP-1 add-on manager controls the system service lifecycle.
 
 ## Audio output
 
-Caldera runs as root and has direct access to the HTP-1 ALSA device nodes.
-It is not forced to `hw:I2S,0`; Caldera performs its own ALSA enumeration and
-uses its automatic output selection.
+Caldera is configured to use the HTP-1 shared DSP ALSA PCM explicitly:
+`default:I2S`. The launcher writes
+`audio.outputDeviceUid=default:I2S` to Caldera's persistent preferences
+before starting the player.
 
-The HTP-1's shared DSP playback sink is `default:I2S`. The official HTP-1
-receiver add-ons open that PCM explicitly. Caldera's automatic selection must
-be checked on the actual HTP-1 to confirm that it selects the shared sink;
-the add-on must not silently substitute a different device.
+Do not substitute `hw:I2S,0` unless testing shows that `default:I2S`
+does not work on the HTP-1. That is a fallback to investigate later, not the
+initial configuration.
+
+Caldera runs as root and has direct access to the HTP-1 ALSA device nodes.
 
 ## HTP-1 input integration
 
-The manifest now registers Caldera as a `source/1` input routed to I2S. The
+The manifest registers Caldera as a `source/1` input routed to I2S. The
 firmware's `addon-source start caldera` command must run synchronously just
 before Caldera opens the output for playback. It must not run merely when the
 daemon starts, because the daemon remains available while idle.
