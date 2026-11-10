@@ -3,13 +3,18 @@ set -euo pipefail
 
 ADDON_DIR=/var/lib/olympia/addons/caldera
 STATE_DIR="$ADDON_DIR/state"
+CONFIG_DIR="$STATE_DIR/.config"
+CONFIG_FILE="$CONFIG_DIR/caldera-music"
+CALDERA="$ADDON_DIR/bin/caldera-music.bin"
 
 export HOME="$STATE_DIR"
-export XDG_CONFIG_HOME="$STATE_DIR/.config"
+export XDG_CONFIG_HOME="$CONFIG_DIR"
 export LD_LIBRARY_PATH="$ADDON_DIR/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 
-mkdir -p "$XDG_CONFIG_HOME"
+mkdir -p "$CONFIG_DIR"
 
-# Do not set an ALSA device here. Caldera discovers available ALSA outputs
-# and uses its own automatic/System Default selection.
-exec "$ADDON_DIR/bin/caldera-music.bin" --config "$XDG_CONFIG_HOME/caldera-music" "$@"
+# Use the HTP-1 shared DSP PCM explicitly. Do not use the AirPlay-only
+# hw:I2S,0 device name; retain default:I2S as the initial target.
+"$CALDERA" --config "$CONFIG_FILE" --set audio.outputDeviceUid=default:I2S
+
+exec "$CALDERA" --config "$CONFIG_FILE" "$@"
