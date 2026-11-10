@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: caldera-armv7-${{ github.ref }}
@@ -50,6 +50,7 @@ jobs:
             htp1-caldera-armv7-build
 
       - name: Assemble installable HTP-1 add-on
+        id: package
         run: |
           set -euo pipefail
           STAGE="$RUNNER_TEMP/caldera-stage"
@@ -59,8 +60,16 @@ jobs:
           cp -a "$STAGE/caldera-music/lib/." addons/caldera/lib/
           chmod 0755 addons/caldera/bin/caldera-music.bin
           bash tools/pack.sh caldera dist
-          tar -tzf dist/htp1-addon-caldera-1.1.1.tar.gz
-          rm -f addons/caldera/bin/caldera-music.bin addons/caldera/lib/*
+          ARCHIVE="dist/htp1-addon-caldera-1.1.1.tar.gz"
+          CHECKSUM="$ARCHIVE.sha256"
+          test -s "$ARCHIVE"
+          test -s "$CHECKSUM"
+          sha256sum -c "$CHECKSUM"
+          tar -tzf "$ARCHIVE"
+          echo "archive=$ARCHIVE" >> "$GITHUB_OUTPUT"
+          echo "checksum=$CHECKSUM" >> "$GITHUB_OUTPUT"
+          rm -f addons/caldera/bin/caldera-music.bin
+          rm -f addons/caldera/lib/*
           rmdir addons/caldera/lib 2>/dev/null || true
 
       - name: Upload installable add-on and diagnostics
@@ -68,11 +77,77 @@ jobs:
         with:
           name: caldera-music-armv7-addon
           path: |
-            dist/htp1-addon-caldera-1.1.1.tar.gz
-            dist/htp1-addon-caldera-1.1.1.tar.gz.sha256
+            ${{ steps.package.outputs.archive }}
+            ${{ steps.package.outputs.checksum }}
             ${{ runner.temp }}/caldera-out/launcher-file.txt
             ${{ runner.temp }}/caldera-out/binary-elf-header.txt
             ${{ runner.temp }}/caldera-out/binary-ldd.txt
             ${{ runner.temp }}/caldera-out/launcher-help.txt
           if-no-files-found: error
           retention-days: 14
+
+      - name: Publish Caldera 1.1.1 GitHub Release
+        if: github.event_name == 'push' && github.event.head_commit.message == 'Publish Caldera 1.1.1 release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(jq -er '.version' addons/caldera/addon.json)"
+          ADDON_ID="$(jq -er '.id' addons/caldera/addon.json)"
+          TAG="v${VERSION}"
+          ARCHIVE="${{ steps.package.outputs.archive }}"
+          CHECKSUM="${{ steps.package.outputs.checksum }}"
+          gh release create "$TAG" "$ARCHIVE" "$CHECKSUM" \
+            --target "$GITHUB_SHA" \
+            --title "Caldera Music $VERSION" \
+            --notes "Installable HTP-1 Caldera Music add-on (ID: $ADDON_ID). Includes the Caldera ARMv7 runtime, Plex PIN sign-in page, and SHA256 checksum."
+
+      - name: Publish Caldera in the HTP-1 add-on catalog
+        if: github.event_name == 'push' && github.event.head_commit.message == 'Publish Caldera 1.1.1 release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(jq -er '.version' addons/caldera/addon.json)"
+          ADDON_ID="$(jq -er '.id' addons/caldera/addon.json)"
+          LABEL="$(jq -er '.label' addons/caldera/addon.json)"
+          SUMMARY="$(jq -er '.summary' addons/caldera/addon.json)"
+          REQUIRES="$(jq -c '.requires // {}' addons/caldera/addon.json)"
+          TAG="v${VERSION}"
+          ARCHIVE_NAME="htp1-addon-${ADDON_ID}-${VERSION}.tar.gz"
+          ARCHIVE="${{ steps.package.outputs.archive }}"
+          CHECKSUM="${{ steps.package.outputs.checksum }}"
+          SHA256="$(awk '{print $1}' "$CHECKSUM")"
+          SIZE="$(stat -c%s "$ARCHIVE")"
+          URL="https://github.com/saurus8119/htp1_sound/releases/download/$TAG/$ARCHIVE_NAME"
+
+          git fetch origin main
+          git checkout -B main origin/main
+          jq \
+            --arg id "$ADDON_ID" \
+            --arg version "$VERSION" \
+            --arg label "$LABEL" \
+            --arg summary "$SUMMARY" \
+            --arg url "$URL" \
+            --arg sha256 "$SHA256" \
+            --argjson size "$SIZE" \
+            --argjson requires "$REQUIRES" \
+            '.addons = ((.addons // []) | map(select(.id != $id)) + [{
+              id: $id,
+              version: $version,
+              label: $label,
+              summary: $summary,
+              requires: $requires,
+              url: $url,
+              sha256: $sha256,
+              size: $size
+            }])' index.json > index.json.tmp
+          mv index.json.tmp index.json
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.json
+          git commit -m "Publish Caldera Music $VERSION in add-on catalog"
+          git push origin main
