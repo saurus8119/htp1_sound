@@ -6,6 +6,7 @@ on:
     paths:
       - addons/caldera/**
       - .github/workflows/build-caldera.yml
+      - tools/pack.sh
   workflow_dispatch:
 
 permissions:
@@ -48,13 +49,31 @@ jobs:
             -v "$RUNNER_TEMP/caldera-out:/out" \
             htp1-caldera-armv7-build
 
-      - name: Upload installer output and diagnostics
+      - name: Assemble installable HTP-1 add-on
+        run: |
+          set -euo pipefail
+          STAGE="$RUNNER_TEMP/caldera-stage"
+          mkdir -p "$STAGE" dist addons/caldera/bin addons/caldera/lib
+          tar -xzf "$RUNNER_TEMP/caldera-out/caldera-music-armv7.tar.gz" -C "$STAGE"
+          cp "$STAGE/caldera-music/bin/caldera-music" addons/caldera/bin/caldera-music.bin
+          cp -a "$STAGE/caldera-music/lib/." addons/caldera/lib/
+          chmod 0755 addons/caldera/bin/caldera-music.bin
+          bash tools/pack.sh caldera dist
+          tar -tzf dist/htp1-addon-caldera-1.1.0.tar.gz
+          if tar -xOzf dist/htp1-addon-caldera-1.1.0.tar.gz caldera/addon.json | grep -E 'hw:I2S|routesTo|airplay'; then
+            echo "Unexpected fixed audio route or AirPlay coupling in Caldera manifest" >&2
+            exit 1
+          fi
+          rm -f addons/caldera/bin/caldera-music.bin addons/caldera/lib/*
+          rmdir addons/caldera/lib 2>/dev/null || true
+
+      - name: Upload installable add-on and diagnostics
         uses: actions/upload-artifact@v4
         with:
-          name: caldera-music-armv7-installer-output
+          name: caldera-music-armv7-addon
           path: |
-            ${{ runner.temp }}/caldera-out/caldera-music-armv7.tar.gz
-            ${{ runner.temp }}/caldera-out/caldera-music-armv7.tar.gz.sha256
+            dist/htp1-addon-caldera-1.1.0.tar.gz
+            dist/htp1-addon-caldera-1.1.0.tar.gz.sha256
             ${{ runner.temp }}/caldera-out/binary-file.txt
             ${{ runner.temp }}/caldera-out/binary-elf-header.txt
             ${{ runner.temp }}/caldera-out/binary-ldd.txt
