@@ -74,9 +74,9 @@ jobs:
           path: |
             dist/htp1-addon-caldera-1.1.0.tar.gz
             dist/htp1-addon-caldera-1.1.0.tar.gz.sha256
-            ${{ runner.temp }}/caldera-out/binary-file.txt
+            ${{ runner.temp }}/caldera-out/launcher-file.txt
             ${{ runner.temp }}/caldera-out/binary-elf-header.txt
             ${{ runner.temp }}/caldera-out/binary-ldd.txt
-            ${{ runner.temp }}/caldera-out/binary-help.txt
+            ${{ runner.temp }}/caldera-out/launcher-help.txt
           if-no-files-found: error
           retention-days: 14
