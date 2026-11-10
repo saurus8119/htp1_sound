@@ -18,8 +18,7 @@ RUN useradd --create-home --uid 1000 --shell /bin/bash caldera
 COPY build-target.sh /usr/local/bin/build-target
 RUN chmod 0755 /usr/local/bin/build-target
 
-USER caldera
-ENV HOME=/home/caldera
-WORKDIR /home/caldera
+ENV HOME=/root
+WORKDIR /root
 
 CMD ["/usr/local/bin/build-target"]
