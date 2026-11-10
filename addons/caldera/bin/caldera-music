@@ -13,5 +13,19 @@ export LD_LIBRARY_PATH="$ADDON_DIR/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 
 mkdir -p "$CONFIG_DIR"
 
+# Caldera owns Plex authentication. Run its built-in PIN flow on first start.
+TOKEN="$("$CALDERA" --config "$CONFIG_FILE" --get plex.token 2>/dev/null || true)"
+if [[ -z "$TOKEN" || "$TOKEN" == "null" || "$TOKEN" == '""' ]]; then
+  echo "Plex sign-in is required. Follow the PIN instructions on the Caldera add-on page."
+  if ! command -v script >/dev/null 2>&1; then
+    echo "Cannot start Caldera PIN sign-in: the system 'script' utility is unavailable."
+    exit 1
+  fi
+
+  # Caldera's --login asks for the output-device choice after Plex authorization.
+  # Its first choice is System Default; the queued Enter accepts that default.
+  printf '\n' | script -q -e -c "$CALDERA --config $CONFIG_FILE --login" /dev/null
+fi
+
 # Leave audio-device selection to Caldera's built-in ALSA discovery.
 exec "$CALDERA" --config "$CONFIG_FILE" "$@"
