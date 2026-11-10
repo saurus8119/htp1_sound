@@ -3,6 +3,11 @@
   "version": "1.1.0",
   "label": "Caldera Music",
   "summary": "Headless Caldera Music player with automatic ALSA output discovery",
+  "requires": {
+    "capabilities": [
+      "source/1"
+    ]
+  },
   "units": {
     "caldera.service": "link"
   },
@@ -10,7 +15,17 @@
     "unit": "caldera.service",
     "defaultOn": true
   },
+  "input": {
+    "code": "caldera",
+    "label": "Caldera Music",
+    "routesTo": "i2s",
+    "order": 218,
+    "formatDetectOption": "biased",
+    "release": "restart",
+    "shield": true
+  },
   "ui": {
-    "switch": true
+    "switch": true,
+    "page": null
   }
 }
