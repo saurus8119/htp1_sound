@@ -60,7 +60,8 @@ jobs:
           cp -a "$STAGE/caldera-music/lib/." addons/caldera/lib/
           chmod 0755 addons/caldera/bin/caldera-music.bin
           bash tools/pack.sh caldera dist
-          ARCHIVE="dist/htp1-addon-caldera-1.1.1.tar.gz"
+          VERSION="$(jq -er '.version' addons/caldera/addon.json)"
+          ARCHIVE="dist/htp1-addon-caldera-$VERSION.tar.gz"
           CHECKSUM="$ARCHIVE.sha256"
           test -s "$ARCHIVE"
           test -s "$CHECKSUM"
@@ -86,8 +87,8 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Publish Caldera 1.1.1 GitHub Release
-        if: github.event_name == 'push' && github.event.head_commit.message == 'Publish Caldera 1.1.1 release (retry)'
+      - name: Publish Caldera GitHub Release
+        if: github.event_name == 'push' && startsWith(github.event.head_commit.message, 'Publish Caldera ')
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -104,7 +105,7 @@ jobs:
             --notes "Installable HTP-1 Caldera Music add-on (ID: $ADDON_ID). Includes the Caldera ARMv7 runtime, Plex PIN sign-in page, and SHA256 checksum."
 
       - name: Publish Caldera in the HTP-1 add-on catalog
-        if: github.event_name == 'push' && github.event.head_commit.message == 'Publish Caldera 1.1.1 release'
+        if: github.event_name == 'push' && startsWith(github.event.head_commit.message, 'Publish Caldera ')
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
