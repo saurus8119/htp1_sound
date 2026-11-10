@@ -1,0 +1,61 @@
+name: Build Caldera Music ARMv7
+
+on:
+  push:
+    branches: [caldera-armv7]
+    paths:
+      - addons/caldera/**
+      - .github/workflows/build-caldera.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: caldera-armv7-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Enable ARM emulation
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build ARMv7 installer environment
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/caldera-out"
+          docker buildx build \
+            --platform linux/arm/v7 \
+            --load \
+            -t htp1-caldera-armv7-build \
+            ./addons/caldera/build
+
+      - name: Run official Caldera installer under ARMv7 emulation
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            --platform linux/arm/v7 \
+            -v "$RUNNER_TEMP/caldera-out:/out" \
+            htp1-caldera-armv7-build
+
+      - name: Upload ARMv7 installer output
+        uses: actions/upload-artifact@v4
+        with:
+          name: caldera-music-armv7
+          path: |
+            ${{ runner.temp }}/caldera-out/caldera-music-armv7.tar.gz
+            ${{ runner.temp }}/caldera-out/caldera-music-armv7.tar.gz.sha256
+            ${{ runner.temp }}/caldera-out/binary-file.txt
+            ${{ runner.temp }}/caldera-out/binary-help.txt
+          if-no-files-found: error
+          retention-days: 14
