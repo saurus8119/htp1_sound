@@ -7,7 +7,7 @@ CALDERA_HOME=/home/caldera
 mkdir -p "$OUT" /usr/local/libexec/caldera-build-shims
 
 echo "Target architecture: $(uname -m)"
-echo "Target libc: $(getconf GNU_LIBC_VERSION)"
+echo "Installer environment libc: $(getconf GNU_LIBC_VERSION)"
 
 # Caldera's official installer downloads and installs the daemon, then registers
 # a systemd user service. The HTP-1 addon manager owns the eventual system
@@ -48,6 +48,15 @@ if [[ ! -x "$LAUNCHER" ]]; then
   exit 1
 fi
 
+# Bundle a self-consistent ARMHF GLIBC + libstdc++ runtime from Debian Bullseye.
+# The executable is then started explicitly through this matching loader.
+RUNTIME_LIB="$INSTALL_DIR/lib"
+mkdir -p "$RUNTIME_LIB"
+cp -a /opt/caldera-runtime/lib/arm-linux-gnueabihf/. "$RUNTIME_LIB/"
+cp -a /opt/caldera-runtime/usr/lib/arm-linux-gnueabihf/. "$RUNTIME_LIB/"
+cp -L /opt/caldera-runtime/lib/ld-linux-armhf.so.3 "$RUNTIME_LIB/ld-linux-armhf.so.3"
+chmod 0755 "$RUNTIME_LIB/ld-linux-armhf.so.3"
+
 # The installer creates a shell launcher, not necessarily the ELF daemon.
 # Preserve and inspect the launcher, then locate the actual ELF payload(s).
 file "$LAUNCHER" | tee "$OUT/launcher-file.txt"
@@ -68,9 +77,13 @@ while IFS= read -r -d '' candidate; do
       readelf -h "$candidate" || true
     } >> "$OUT/binary-elf-header.txt"
     {
-      echo "===== $candidate ====="
-      ldd "$candidate" 2>&1 || true
+      echo "===== $candidate (bundled loader) ====="
+      "$RUNTIME_LIB/ld-linux-armhf.so.3" --library-path "$RUNTIME_LIB" --list "$candidate" 2>&1 || true
     } >> "$OUT/binary-ldd.txt"
+    if "$RUNTIME_LIB/ld-linux-armhf.so.3" --library-path "$RUNTIME_LIB" --list "$candidate" 2>&1 | grep -q 'not found'; then
+      echo "Unresolved shared library for $candidate" >&2
+      exit 1
+    fi
   fi
 done < <(find "$INSTALL_DIR" -type f -print0)
 
@@ -83,4 +96,4 @@ runuser -u "$CALDERA_USER" -- env HOME="$CALDERA_HOME" "$LAUNCHER" --help > "$OU
 
 tar -C "$CALDERA_HOME" -czf "$OUT/caldera-music-armv7.tar.gz" caldera-music
 sha256sum "$OUT/caldera-music-armv7.tar.gz" > "$OUT/caldera-music-armv7.tar.gz.sha256"
-echo "Installer output captured and archived."
+echo "Installer output captured and archived with the bundled ARMHF runtime."
