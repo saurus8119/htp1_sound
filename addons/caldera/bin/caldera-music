@@ -1,0 +1,15 @@
+#!/bin/bash
+set -euo pipefail
+
+ADDON_DIR=/var/lib/olympia/addons/caldera
+STATE_DIR="$ADDON_DIR/state"
+
+export HOME="$STATE_DIR"
+export XDG_CONFIG_HOME="$STATE_DIR/.config"
+export LD_LIBRARY_PATH="$ADDON_DIR/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+
+mkdir -p "$XDG_CONFIG_HOME"
+
+# Do not set an ALSA device here. Caldera discovers available ALSA outputs
+# and uses its own automatic/System Default selection.
+exec "$ADDON_DIR/bin/caldera-music.bin" --config "$XDG_CONFIG_HOME/caldera-music" "$@"
