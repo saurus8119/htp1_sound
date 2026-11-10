@@ -1,10 +1,11 @@
 #!/bin/sh
-# Publish Caldera's own Plex PIN instructions for the add-on page.
+# Publish Caldera's actual Plex sign-in terminal output for the add-on page.
 set -eu
 
 ADDON_DIR="/var/lib/olympia/addons/caldera"
 STATE_DIR="$ADDON_DIR/state"
 CONFIG_FILE="$STATE_DIR/.config/caldera-music"
+LOGIN_LOG="$STATE_DIR/caldera-login.typescript"
 CALDERA="$ADDON_DIR/bin/caldera-music.bin"
 WWW_DIR="$ADDON_DIR/www"
 TMP_FILE="$WWW_DIR/.auth.txt.tmp"
@@ -19,14 +20,13 @@ fi
 
 if [ -n "$TOKEN" ] && [ "$TOKEN" != "null" ] && [ "$TOKEN" != '""' ]; then
     printf '%s\n' "Plex authorization is saved. No sign-in is required." > "$TMP_FILE"
-elif command -v journalctl >/dev/null 2>&1; then
-    journalctl --no-pager --quiet -o cat -n 120 -u caldera.service 2>/dev/null |
-        grep -Ei 'Plex sign-in|plex\.tv/link|Enter code:|Waiting for authorization|Authenticated as|Signed in to Plex|Authentication timed out|Failed to get PIN|PIN request failed|PIN check failed|output.device|Output Device|System Default|Cannot start Caldera PIN sign-in|No auth token|re-run --login' > "$TMP_FILE" || true
+elif [ -s "$LOGIN_LOG" ]; then
+    tr -d '\r' < "$LOGIN_LOG" | tail -n 100 > "$TMP_FILE"
     if [ ! -s "$TMP_FILE" ]; then
-        printf '%s\n' "Waiting for Caldera to start Plex sign-in…" > "$TMP_FILE"
+        printf '%s\n' "Waiting for Caldera to provide the Plex PIN…" > "$TMP_FILE"
     fi
 else
-    printf '%s\n' "Waiting for Caldera to start Plex sign-in…" > "$TMP_FILE"
+    printf '%s\n' "Caldera Plex sign-in has not started yet." > "$TMP_FILE"
 fi
 
 chmod 0644 "$TMP_FILE"
