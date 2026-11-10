@@ -5,27 +5,29 @@ ADDON_DIR=/var/lib/olympia/addons/caldera
 STATE_DIR="$ADDON_DIR/state"
 CONFIG_DIR="$STATE_DIR/.config"
 CONFIG_FILE="$CONFIG_DIR/caldera-music"
+LOGIN_LOG="$STATE_DIR/caldera-login.typescript"
 CALDERA="$ADDON_DIR/bin/caldera-music.bin"
 
 export HOME="$STATE_DIR"
 export XDG_CONFIG_HOME="$CONFIG_DIR"
 export LD_LIBRARY_PATH="$ADDON_DIR/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 
-mkdir -p "$CONFIG_DIR"
+mkdir -p "$CONFIG_DIR" "$STATE_DIR"
 
-# Caldera owns Plex authentication. Run its built-in PIN flow on first start.
+# Caldera owns Plex authentication. Capture its real terminal output for the add-on page.
 TOKEN="$("$CALDERA" --config "$CONFIG_FILE" --get plex.token 2>/dev/null || true)"
 if [[ -z "$TOKEN" || "$TOKEN" == "null" || "$TOKEN" == '""' ]]; then
-  echo "Plex sign-in is required. Follow the PIN instructions on the Caldera add-on page."
+  : > "$LOGIN_LOG"
   if ! command -v script >/dev/null 2>&1; then
-    echo "Cannot start Caldera PIN sign-in: the system 'script' utility is unavailable."
+    printf '%s\n' "Cannot start Caldera PIN sign-in: the system 'script' utility is unavailable." > "$LOGIN_LOG"
+    cat "$LOGIN_LOG"
     exit 1
   fi
 
-  # Caldera's --login asks for the output-device choice after Plex authorization.
-  # Its first choice is System Default; the queued Enter accepts that default.
-  printf '\n' | script -q -e -c "$CALDERA --config $CONFIG_FILE --login" /dev/null
+  # Set a stable player name so the only interactive choice is Caldera's
+  # first output-device option (System Default). Do not force an ALSA device.
+  printf '\n' | script -q -e -c "$CALDERA --config $CONFIG_FILE --login --player-name 'Caldera Music'" "$LOGIN_LOG"
 fi
 
-# Leave audio-device selection to Caldera's built-in ALSA discovery.
+# Leave audio-device selection to Caldera's built-in default-device discovery.
 exec "$CALDERA" --config "$CONFIG_FILE" "$@"
