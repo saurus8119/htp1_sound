@@ -10,7 +10,7 @@ RUN printf '%s\n' \
  && printf 'Acquire::Check-Valid-Until "false";\nAcquire::AllowInsecureRepositories "true";\n' \
       > /etc/apt/apt.conf.d/99archive \
  && apt-get -o Acquire::Check-Valid-Until=false update \
- && apt-get install -y --no-install-recommends ca-certificates curl bash tar file \
+ && apt-get install -y --no-install-recommends ca-certificates curl bash tar file systemd \
  && rm -rf /var/lib/apt/lists/*
 
 RUN useradd --create-home --uid 1000 --shell /bin/bash caldera
