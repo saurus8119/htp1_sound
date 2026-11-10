@@ -6,14 +6,16 @@ HTP-1 add-on manager controls the system service lifecycle.
 ## Plex authorization
 
 On first start, the add-on checks whether Caldera already has a Plex token.
-If not, it runs Caldera's built-in `--login` flow. The Caldera add-on page
-shows the PIN and sign-in instructions from Caldera's own output. Open
+If not, it runs Caldera's built-in `--login` flow and captures its terminal
+output in the add-on state directory. The Caldera add-on page displays that
+actual output, including the PIN provided by Caldera. Open
 [plex.tv/link](https://plex.tv/link), enter the displayed PIN, and approve
 the sign-in.
 
 After authorization, Caldera saves its token in its normal configuration
-file and starts the player. The login flow accepts Caldera's first output
-choice, System Default, so the add-on does not pin a specific ALSA device.
+file and starts the player. The login flow supplies the player name `Caldera Music` and accepts Caldera's
+first output choice, System Default, so the add-on does not pin a specific
+ALSA device.
 
 ## Audio output
 
