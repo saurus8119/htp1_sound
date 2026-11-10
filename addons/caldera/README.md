@@ -44,3 +44,4 @@ Caldera's configuration and login state are stored under:
 The binary and its bundled runtime libraries are installed inside the add-on
 package. The GitHub Actions build obtains those files by running the official
 Caldera headless installer in the ARMv7 build environment.
+
