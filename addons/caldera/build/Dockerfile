@@ -3,15 +3,13 @@ FROM arm32v7/debian:stretch
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN printf '%s\\n' \\
-      'deb http://archive.debian.org/debian stretch main' \\
-      'deb http://archive.debian.org/debian-security stretch/updates main' \\
-      > /etc/apt/sources.list \\
- && printf 'Acquire::Check-Valid-Until "false";\\nAcquire::AllowInsecureRepositories "true";\\n' \\
-      > /etc/apt/apt.conf.d/99archive \\
- && apt-get -o Acquire::Check-Valid-Until=false update \\
- && apt-get install -y --no-install-recommends ca-certificates curl bash tar file binutils libc-bin \\
- && rm -rf /var/lib/apt/lists/*
+RUN echo "deb http://archive.debian.org/debian stretch main" > /etc/apt/sources.list && \
+    echo "deb http://archive.debian.org/debian-security stretch/updates main" >> /etc/apt/sources.list && \
+    echo 'Acquire::Check-Valid-Until "false";' > /etc/apt/apt.conf.d/99archive && \
+    echo 'Acquire::AllowInsecureRepositories "true";' >> /etc/apt/apt.conf.d/99archive && \
+    apt-get -o Acquire::Check-Valid-Until=false update && \
+    apt-get install -y --no-install-recommends ca-certificates curl bash tar file binutils libc-bin && \
+    rm -rf /var/lib/apt/lists/*
 
 RUN useradd --create-home --uid 1000 --shell /bin/bash caldera
 
