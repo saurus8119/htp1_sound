@@ -40,13 +40,27 @@ jobs:
             -t htp1-caldera-armv7-build \
             ./addons/caldera/build
 
-      - name: Run official Caldera installer under ARMv7 emulation
+      - name: Run systemd and official Caldera installer
         run: |
           set -euo pipefail
-          docker run --rm \
+          docker run -d --rm \
+            --name caldera-armv7-systemd \
+            --privileged \
             --platform linux/arm/v7 \
+            --tmpfs /run --tmpfs /run/lock --tmpfs /tmp \
             -v "$RUNNER_TEMP/caldera-out:/out" \
+            --entrypoint /sbin/init \
             htp1-caldera-armv7-build
+          cleanup() { docker stop caldera-armv7-systemd >/dev/null 2>&1 || true; }
+          trap cleanup EXIT
+          for attempt in $(seq 1 45); do
+            state=$(docker exec caldera-armv7-systemd systemctl is-system-running 2>/dev/null || true)
+            if [[ "$state" == "running" || "$state" == "degraded" ]]; then
+              break
+            fi
+            sleep 1
+          done
+          docker exec caldera-armv7-systemd /usr/local/bin/build-target
 
       - name: Upload ARMv7 installer output
         uses: actions/upload-artifact@v4
