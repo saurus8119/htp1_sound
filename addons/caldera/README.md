@@ -5,14 +5,9 @@ HTP-1 add-on manager controls the system service lifecycle.
 
 ## Audio output
 
-Caldera is configured to use the HTP-1 shared DSP ALSA PCM explicitly:
-`default:I2S`. The launcher writes
-`audio.outputDeviceUid=default:I2S` to Caldera's persistent preferences
-before starting the player.
-
-Do not substitute `hw:I2S,0` unless testing shows that `default:I2S`
-does not work on the HTP-1. That is a fallback to investigate later, not the
-initial configuration.
+Caldera is left to discover and select its default ALSA output device using
+its built-in device discovery. The add-on does not force a device name or
+override Caldera's audio-device selection.
 
 Caldera runs as root and has direct access to the HTP-1 ALSA device nodes.
 
