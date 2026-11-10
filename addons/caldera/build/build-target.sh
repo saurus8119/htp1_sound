@@ -49,7 +49,7 @@ if [[ ! -x "$LAUNCHER" ]]; then
 fi
 
 # Bundle a self-consistent ARMHF GLIBC + libstdc++ runtime from Debian Bullseye.
-# The executable is then started explicitly through this matching loader.
+# Caldera is launched through this matching loader, not the HTP-1's older loader.
 RUNTIME_LIB="$INSTALL_DIR/lib"
 mkdir -p "$RUNTIME_LIB"
 cp -a /opt/caldera-runtime/lib/arm-linux-gnueabihf/. "$RUNTIME_LIB/"
@@ -57,8 +57,6 @@ cp -a /opt/caldera-runtime/usr/lib/arm-linux-gnueabihf/. "$RUNTIME_LIB/"
 cp -L /opt/caldera-runtime/lib/ld-linux-armhf.so.3 "$RUNTIME_LIB/ld-linux-armhf.so.3"
 chmod 0755 "$RUNTIME_LIB/ld-linux-armhf.so.3"
 
-# The installer creates a shell launcher, not necessarily the ELF daemon.
-# Preserve and inspect the launcher, then locate the actual ELF payload(s).
 file "$LAUNCHER" | tee "$OUT/launcher-file.txt"
 cp "$LAUNCHER" "$OUT/caldera-music-launcher.sh"
 sed -n '1,240p' "$LAUNCHER" > "$OUT/launcher-contents.txt"
@@ -92,7 +90,10 @@ if [[ "$ELF_COUNT" -eq 0 ]]; then
   echo "No ELF payload found beneath $INSTALL_DIR; launcher and full file inventory are included for diagnosis."
 fi
 
-runuser -u "$CALDERA_USER" -- env HOME="$CALDERA_HOME" "$LAUNCHER" --help > "$OUT/launcher-help.txt" 2>&1 || true
+# Test the daemon itself with the bundled loader. Do not use the installer's
+# shell launcher here because it would select the build container's loader.
+"$RUNTIME_LIB/ld-linux-armhf.so.3" --library-path "$RUNTIME_LIB" \
+  "$INSTALL_DIR/bin/caldera-music" --help > "$OUT/launcher-help.txt" 2>&1 || true
 
 tar -C "$CALDERA_HOME" -czf "$OUT/caldera-music-armv7.tar.gz" caldera-music
 sha256sum "$OUT/caldera-music-armv7.tar.gz" > "$OUT/caldera-music-armv7.tar.gz.sha256"
