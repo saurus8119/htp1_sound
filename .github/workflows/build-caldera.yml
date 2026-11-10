@@ -64,7 +64,7 @@ jobs:
           CHECKSUM="$ARCHIVE.sha256"
           test -s "$ARCHIVE"
           test -s "$CHECKSUM"
-          sha256sum -c "$CHECKSUM"
+          (cd dist && sha256sum -c "$(basename "$CHECKSUM")")
           tar -tzf "$ARCHIVE"
           echo "archive=$ARCHIVE" >> "$GITHUB_OUTPUT"
           echo "checksum=$CHECKSUM" >> "$GITHUB_OUTPUT"
@@ -87,7 +87,7 @@ jobs:
           retention-days: 14
 
       - name: Publish Caldera 1.1.1 GitHub Release
-        if: github.event_name == 'push' && github.event.head_commit.message == 'Publish Caldera 1.1.1 release'
+        if: github.event_name == 'push' && github.event.head_commit.message == 'Publish Caldera 1.1.1 release (retry)'
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
