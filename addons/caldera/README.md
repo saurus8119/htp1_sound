@@ -1,19 +1,27 @@
-# Caldera Music — ARMv7 build stage
+# Caldera Music — HTP-1 add-on
 
-This directory builds Caldera Music Headless in a Debian 9 ARMv7 environment
-matching the HTP-1's 32-bit ARM userspace baseline (glibc 2.24).
+This add-on packages the official Caldera Music ARMv7 headless player for the
+HTP-1. The HTP-1 add-on manager controls the system service lifecycle.
 
-The build does not reimplement Caldera's architecture detection. It runs the
-official installer unchanged:
+## Audio output
 
-```sh
-curl -fsSL https://releases.caldera.homes/music/headless/install.sh | bash
-```
+Caldera runs as root, giving it direct access to the HTP-1 ALSA device nodes.
+The add-on does not declare an HTP-1 source/input route and does not set an ALSA
+device such as `hw:I2S,0`. Caldera is left to enumerate ALSA devices and use its
+automatic/System Default output selection.
 
-GitHub Actions uses QEMU and Docker Buildx to execute that installer as ARMv7.
-The workflow captures the installer's `~/caldera-music` directory as an
-artifact for inspection before wiring it into an HTP-1 service.
+No AirPlay configuration, routing, or service is shared with this add-on.
 
-This is an initial build-validation stage, not yet an installable HTP-1 addon.
-The runtime service and addon manifest will be added after the installer output
-and startup requirements have been verified.
+## Persistent configuration
+
+Caldera's configuration and login state are stored under:
+
+`/var/lib/olympia/addons/caldera/state/.config/caldera-music`
+
+The binary and its bundled runtime libraries are installed inside the add-on
+package. The GitHub Actions build obtains those files by running the official
+Caldera headless installer in the ARMv7 build environment.
+
+The add-on package build does not claim successful playback on physical HTP-1
+hardware. Audio output and Caldera account authorization still require device
+validation.
