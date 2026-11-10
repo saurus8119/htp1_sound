@@ -59,6 +59,11 @@ jobs:
           cp "$STAGE/caldera-music/bin/caldera-music" addons/caldera/bin/caldera-music.bin
           cp -a "$STAGE/caldera-music/lib/." addons/caldera/lib/
           chmod 0755 addons/caldera/bin/caldera-music.bin
+          test -x addons/caldera/lib/ld-linux-armhf.so.3
+          test -e addons/caldera/lib/libc.so.6
+          test -e addons/caldera/lib/libm.so.6
+          test -e addons/caldera/lib/libpthread.so.0
+          test -e addons/caldera/lib/libstdc++.so.6
           bash tools/pack.sh caldera dist
           VERSION="$(jq -er '.version' addons/caldera/addon.json)"
           ARCHIVE="dist/htp1-addon-caldera-$VERSION.tar.gz"
@@ -70,9 +75,8 @@ jobs:
           echo "archive=$ARCHIVE" >> "$GITHUB_OUTPUT"
           echo "checksum=$CHECKSUM" >> "$GITHUB_OUTPUT"
           rm -f addons/caldera/bin/caldera-music.bin
-          rm -f addons/caldera/lib/*
-          rmdir addons/caldera/lib 2>/dev/null || true
-
+          rm -rf addons/caldera/lib
+          
       - name: Upload installable add-on and diagnostics
         uses: actions/upload-artifact@v4
         with:
@@ -102,7 +106,7 @@ jobs:
           gh release create "$TAG" "$ARCHIVE" "$CHECKSUM" \
             --target "$GITHUB_SHA" \
             --title "Caldera Music $VERSION" \
-            --notes "Installable HTP-1 Caldera Music add-on (ID: $ADDON_ID). Includes the Caldera ARMv7 runtime, Plex PIN sign-in page, and SHA256 checksum."
+            --notes "Installable HTP-1 Caldera Music add-on (ID: $ADDON_ID). Includes Caldera ARMHF runtime libraries, the matching dynamic loader, Plex PIN sign-in page, and SHA256 checksum."
 
       - name: Publish Caldera in the HTP-1 add-on catalog
         if: github.event_name == 'push' && startsWith(github.event.head_commit.message, 'Publish Caldera ')
