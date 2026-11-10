@@ -41,18 +41,46 @@ runuser -u "$CALDERA_USER" -- env \
   '
 
 INSTALL_DIR="$CALDERA_HOME/caldera-music"
-BINARY="$INSTALL_DIR/caldera-music"
-if [[ ! -x "$BINARY" ]]; then
-  echo "Installer completed but expected executable was not found: $BINARY" >&2
-  find "$CALDERA_HOME" -maxdepth 5 -type f -print >&2 || true
+LAUNCHER="$INSTALL_DIR/caldera-music"
+if [[ ! -x "$LAUNCHER" ]]; then
+  echo "Installer completed but expected launcher was not found: $LAUNCHER" >&2
+  find "$CALDERA_HOME" -maxdepth 6 -type f -print >&2 || true
   exit 1
 fi
 
-file "$BINARY" | tee "$OUT/binary-file.txt"
-readelf -h "$BINARY" > "$OUT/binary-elf-header.txt"
-ldd "$BINARY" > "$OUT/binary-ldd.txt" 2>&1 || true
-runuser -u "$CALDERA_USER" -- env HOME="$CALDERA_HOME" "$BINARY" --help > "$OUT/binary-help.txt" 2>&1 || true
+# The installer creates a shell launcher, not necessarily the ELF daemon.
+# Preserve and inspect the launcher, then locate the actual ELF payload(s).
+file "$LAUNCHER" | tee "$OUT/launcher-file.txt"
+cp "$LAUNCHER" "$OUT/caldera-music-launcher.sh"
+sed -n '1,240p' "$LAUNCHER" > "$OUT/launcher-contents.txt"
+find "$INSTALL_DIR" -type f -exec file {} \; > "$OUT/install-files.txt"
+
+: > "$OUT/binary-elf-header.txt"
+: > "$OUT/binary-ldd.txt"
+ELF_COUNT=0
+while IFS= read -r -d '' candidate; do
+  description=$(file -b "$candidate" 2>/dev/null || true)
+  if [[ "$description" == *ELF* ]]; then
+    ELF_COUNT=$((ELF_COUNT + 1))
+    {
+      echo "===== $candidate ====="
+      echo "$description"
+      readelf -h "$candidate" || true
+    } >> "$OUT/binary-elf-header.txt"
+    {
+      echo "===== $candidate ====="
+      ldd "$candidate" 2>&1 || true
+    } >> "$OUT/binary-ldd.txt"
+  fi
+done < <(find "$INSTALL_DIR" -type f -print0)
+
+echo "ELF payloads found: $ELF_COUNT"
+if [[ "$ELF_COUNT" -eq 0 ]]; then
+  echo "No ELF payload found beneath $INSTALL_DIR; launcher and full file inventory are included for diagnosis."
+fi
+
+runuser -u "$CALDERA_USER" -- env HOME="$CALDERA_HOME" "$LAUNCHER" --help > "$OUT/launcher-help.txt" 2>&1 || true
 
 tar -C "$CALDERA_HOME" -czf "$OUT/caldera-music-armv7.tar.gz" caldera-music
 sha256sum "$OUT/caldera-music-armv7.tar.gz" > "$OUT/caldera-music-armv7.tar.gz.sha256"
-echo "Installer output captured. Runtime service packaging is a separate validation step."
+echo "Installer output captured and archived."
