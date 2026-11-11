@@ -12,10 +12,6 @@ on:
 permissions:
   contents: write
 
-concurrency:
-  group: caldera-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   build:
     runs-on: ubuntu-24.04
@@ -109,7 +105,7 @@ jobs:
           echo "checksum=$CHECKSUM" >> "$GITHUB_OUTPUT"
           rm -f addons/caldera/bin/caldera-music.bin
           rm -rf addons/caldera/lib
-          
+
       - name: Upload installable add-on and diagnostics
         uses: actions/upload-artifact@v4
         with:
