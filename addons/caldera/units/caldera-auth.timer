@@ -1,0 +1,11 @@
+[Unit]
+Description=Refresh Caldera Plex sign-in instructions
+
+[Timer]
+OnBootSec=5s
+OnUnitActiveSec=3s
+AccuracySec=1s
+Unit=caldera-auth.service
+
+[Install]
+WantedBy=timers.target
