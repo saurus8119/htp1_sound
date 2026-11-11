@@ -4,7 +4,7 @@
   "addons": [
     {
       "id": "caldera",
-      "version": "1.2.7",
+      "version": "1.2.8",
       "label": "HTPlex",
       "summary": "HTPlex network music player with Plex sign-in",
       "requires": {
@@ -12,9 +12,9 @@
           "source/1"
         ]
       },
-      "url": "https://github.com/saurus8119/htp1_sound/releases/download/v1.2.7/htp1-addon-caldera-1.2.7.tar.gz",
-      "sha256": "7173bcf2b406af90bc8790da9b57c961637d90741328366fc873926b7ea932c2",
-      "size": 8535443
+      "url": "https://github.com/saurus8119/htp1_sound/releases/download/v1.2.8/htp1-addon-caldera-1.2.8.tar.gz",
+      "sha256": "d1e59ee66385273070541eb35913bb9dcace26b4023a4b90a2afabda6f2a6cd8",
+      "size": 8535555
     }
   ]
 }
