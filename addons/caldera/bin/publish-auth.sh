@@ -1,5 +1,5 @@
 #!/bin/sh
-# Publish Caldera's actual Plex sign-in terminal output for the add-on page.
+# Publish HTPlex's Plex sign-in status for the add-on page.
 set -eu
 
 ADDON_DIR="/var/lib/olympia/addons/caldera"
@@ -24,10 +24,10 @@ if [ -n "$TOKEN" ] && [ "$TOKEN" != "null" ] && [ "$TOKEN" != '\"\"' ]; then
 elif [ -s "$LOGIN_LOG" ]; then
     tr -d '\r' < "$LOGIN_LOG" | tail -n 100 > "$TMP_FILE"
     if [ ! -s "$TMP_FILE" ]; then
-        printf '%s\n' "Waiting for Caldera to provide the Plex PIN…" > "$TMP_FILE"
+        printf '%s\n' "Waiting for HTPlex to provide the Plex PIN…" > "$TMP_FILE"
     fi
 else
-    printf '%s\n' "Caldera Plex sign-in has not started yet." > "$TMP_FILE"
+    printf '%s\n' "HTPlex Plex sign-in has not started yet." > "$TMP_FILE"
 fi
 
 chmod 0644 "$TMP_FILE"
