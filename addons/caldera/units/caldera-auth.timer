@@ -1,10 +1,9 @@
 [Unit]
 Description=Refresh Caldera Plex sign-in instructions
-PartOf=caldera.service
 
 [Timer]
 OnBootSec=5s
-OnUnitActiveSec=15s
+OnUnitActiveSec=3s
 AccuracySec=1s
 Unit=caldera-auth.service
 
