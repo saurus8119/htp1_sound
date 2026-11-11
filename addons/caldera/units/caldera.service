@@ -10,6 +10,9 @@ Environment=HOME=/var/lib/olympia/addons/caldera/state
 Environment=XDG_CONFIG_HOME=/var/lib/olympia/addons/caldera/state/.config
 ExecStartPre=/bin/mkdir -p /var/lib/olympia/addons/caldera/state/.config
 ExecStart=/var/lib/olympia/addons/caldera/bin/caldera-music
+CPUSchedulingPolicy=fifo
+CPUSchedulingPriority=45
+ExecStartPost=/bin/bash -c 'echo $MAINPID > /sys/fs/cgroup/cpuset/user/cgroup.procs 2>/dev/null || true'
 Restart=on-failure
 RestartSec=5
 
