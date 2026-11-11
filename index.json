@@ -4,7 +4,7 @@
   "addons": [
     {
       "id": "caldera",
-      "version": "1.1.5",
+      "version": "1.2.0",
       "label": "Caldera Music",
       "summary": "Headless Caldera Music player with Plex sign-in instructions",
       "requires": {
