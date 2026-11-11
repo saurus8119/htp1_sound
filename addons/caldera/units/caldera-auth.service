@@ -1,7 +1,0 @@
-[Unit]
-Description=Publish Caldera Plex sign-in instructions for its add-on page
-
-[Service]
-Type=oneshot
-User=root
-ExecStart=/var/lib/olympia/addons/caldera/bin/publish-auth.sh
