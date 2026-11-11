@@ -1,0 +1,33 @@
+{
+  "id": "caldera",
+  "version": "1.3.0",
+  "label": "Caldera Music",
+  "summary": "Headless Caldera Music player with Plex sign-in instructions",
+  "requires": {
+    "capabilities": [
+      "source/1"
+    ]
+  },
+  "units": {
+    "caldera.service": "link",
+    "caldera-auth.service": "link",
+    "caldera-auth.timer": "link"
+  },
+  "service": {
+    "unit": "caldera.service",
+    "defaultOn": true
+  },
+  "input": {
+    "code": "caldera",
+    "label": "Caldera Music",
+    "routesTo": "i2s",
+    "order": 218,
+    "formatDetectOption": "biased",
+    "release": "restart",
+    "shield": true
+  },
+  "ui": {
+    "switch": true,
+    "page": "/addons/caldera/"
+  }
+}

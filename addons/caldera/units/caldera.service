@@ -1,0 +1,18 @@
+[Unit]
+Description=Caldera Music Player
+After=network-online.target sound.target caldera-auth.timer
+Wants=network-online.target
+Requires=caldera-auth.timer
+
+[Service]
+Type=simple
+User=root
+Environment=HOME=/var/lib/olympia/addons/caldera/state
+Environment=XDG_CONFIG_HOME=/var/lib/olympia/addons/caldera/state/.config
+ExecStartPre=/bin/mkdir -p /var/lib/olympia/addons/caldera/state/.config
+ExecStart=/var/lib/olympia/addons/caldera/bin/caldera-music
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
