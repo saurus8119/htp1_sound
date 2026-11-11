@@ -1,6 +1,6 @@
 {
   "id": "caldera",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "label": "Caldera Music",
   "summary": "Headless Caldera Music player with Plex sign-in instructions",
   "requires": {
