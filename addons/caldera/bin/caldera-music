@@ -25,17 +25,17 @@ fi
 
 # Caldera owns Plex authentication. Capture its real terminal output for the add-on page.
 TOKEN="$( "$LOADER" --library-path "$ADDON_DIR/lib" "$CALDERA" --config "$CONFIG_FILE" --get plex.token 2>/dev/null || true )"
-if [[ -z "$TOKEN" || "$TOKEN" == "null" || "$TOKEN" == '\\"\\"' ]]; then
+if [[ -z "$TOKEN" || "$TOKEN" == "null" || "$TOKEN" == '\"\"' ]]; then
   : > "$LOGIN_LOG"
   if ! command -v script >/dev/null 2>&1; then
-    printf '%s\\n' "Cannot start Caldera PIN sign-in: the system 'script' utility is unavailable." > "$LOGIN_LOG"
+    printf '%s\n' "Cannot start Caldera PIN sign-in: the system 'script' utility is unavailable." > "$LOGIN_LOG"
     cat "$LOGIN_LOG"
     exit 1
   fi
 
   # Set a stable player name so the only interactive choice is Caldera's
   # first output-device option (System Default).
-  printf '\\n' | script -q -e -c "$LOADER --library-path $ADDON_DIR/lib $CALDERA --config $CONFIG_FILE --login --player-name 'Caldera Music'" "$LOGIN_LOG"
+  printf '\n' | script -q -e -c "$LOADER --library-path $ADDON_DIR/lib $CALDERA --config $CONFIG_FILE --login --player-name 'Caldera Music'" "$LOGIN_LOG"
 fi
 
 # Pin Caldera to the HTP-1's ALSA default I2S device.
