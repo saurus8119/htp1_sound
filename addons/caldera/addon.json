@@ -1,8 +1,8 @@
 {
   "id": "caldera",
-  "version": "1.2.5",
-  "label": "Caldera Music",
-  "summary": "Headless Caldera Music player with Plex sign-in instructions",
+  "version": "1.2.6",
+  "label": "HTPlex",
+  "summary": "HTPlex network music player with Plex sign-in",
   "requires": {
     "capabilities": [
       "source/1"
@@ -19,7 +19,7 @@
   },
   "input": {
     "code": "caldera",
-    "label": "Caldera Music",
+    "label": "HTPlex",
     "routesTo": "i2s",
     "order": 218,
     "formatDetectOption": "biased",
