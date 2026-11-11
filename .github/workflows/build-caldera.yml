@@ -57,7 +57,22 @@ jobs:
           mkdir -p "$STAGE" dist addons/caldera/bin addons/caldera/lib
           tar -xzf "$RUNNER_TEMP/caldera-out/caldera-music-armv7.tar.gz" -C "$STAGE"
           cp "$STAGE/caldera-music/bin/caldera-music" addons/caldera/bin/caldera-music.bin
-          cp -a "$STAGE/caldera-music/lib/." addons/caldera/lib/
+          rm -rf addons/caldera/lib
+          mkdir -p addons/caldera/lib
+          for lib in \
+            ld-linux-armhf.so.3 ld-2.31.so \
+            libavformat.so.62 libavcodec.so.62 libavutil.so.60 \
+            libswresample.so.6 \
+            libpthread.so.0 libpthread-2.31.so \
+            libdl.so.2 libdl-2.31.so \
+            libz.so.1 libz.so.1.2.11 \
+            libstdc++.so.6 libstdc++.so.6.0.28 \
+            libm.so.6 libm-2.31.so \
+            libgcc_s.so.1 \
+            libc.so.6 libc-2.31.so; do
+            test -e "$STAGE/caldera-music/lib/$lib"
+            cp -a "$STAGE/caldera-music/lib/$lib" addons/caldera/lib/
+          done
           chmod 0755 addons/caldera/bin/caldera-music.bin
           test -x addons/caldera/lib/ld-linux-armhf.so.3
           test -e addons/caldera/lib/libc.so.6
