@@ -1,0 +1,44 @@
+name: One-time cleanup of obsolete working branches
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/cleanup-branches-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete obsolete working branches
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          branches=(
+            "caldera-armv7"
+            "fix/airplay2-service-isolation"
+            "fix/htplay1-logs-snapshot"
+            "fix/optional-smbclient-install"
+            "fix/package-declared-units"
+            "fix/restore-known-good-alsa-buffer"
+            "restore/v2.0.49-workflows"
+            "revert/smb-logging-to-2.0.49"
+            "test/alsa-auto-period-buffer"
+            "test/alsa-larger-buffer"
+            "test/backend-buffer-26460"
+            "test/backend-buffer-target-19845"
+            "test/caldera-armv7-compat"
+            "test/larger-airplay-buffer"
+            "test/period-size-2048"
+            "test/use-mmap-enabled"
+            "v2.0.8-classic-airplay-test"
+          )
+          for branch in "${branches[@]}"; do
+            echo "Deleting ${branch}"
+            gh api --method DELETE "repos/${GITHUB_REPOSITORY}/git/refs/heads/${branch}"
+          done
