@@ -1,4 +1,4 @@
-# Caldera Music — HTP-1 add-on
+# Caldera Music — HTP-1 add-on AI Sucks version
 
 This add-on packages the official Caldera Music ARMv7 headless player. The
 HTP-1 add-on manager controls the system service lifecycle.
