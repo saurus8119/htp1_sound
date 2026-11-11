@@ -38,8 +38,6 @@ command -v "$PY" >/dev/null 2>&1 || {
     exit 1
 }
 
-# Legacy mode: locate the source directory by manifest ID.
-# This supports an ID such as airplay2 while the source remains addons/airplay.
 if [[ -z "$SRC" ]]; then
     for manifest in "$ROOT"/addons/*/addon.json; do
         [[ -f "$manifest" ]] || continue
@@ -94,7 +92,6 @@ if not isinstance(declared_units, dict):
 
 name = "htp1-addon-%s-%s.tar.gz" % (aid, version)
 ship_files = {"addon.json", "README.md"}
-# lib/ is included because this build bundles libplist-2.0.so for the target.
 ship_dirs = {"bin", "etc", "units", "debs", "flows", "www", "hooks", "lib"}
 path = os.path.join(out, name)
 
@@ -108,8 +105,6 @@ with open(path, "wb") as raw:
                     dirs[:] = sorted(d for d in dirs if d in ship_dirs)
                     files = [f for f in files if f in ship_files]
                 elif rel == "units":
-                    # Source trees may retain legacy units; only package units
-                    # explicitly registered by this add-on's manifest.
                     files = [f for f in files if f in declared_units]
                     dirs.sort()
                 else:
@@ -138,7 +133,8 @@ with open(path, "wb") as raw:
                     info.uid = info.gid = 0
                     info.uname = info.gname = "root"
                     info.mtime = 0
-                    info.mode = 0o755 if top in ("bin", "hooks") else 0o644
+                    # Preserve executable bits (notably lib/ld-linux-armhf.so.3).
+                    info.mode = 0o755 if (info.mode & 0o111) or top in ("bin", "hooks") else 0o644
 
                     with open(file_path, "rb") as source:
                         tar.addfile(info, source)

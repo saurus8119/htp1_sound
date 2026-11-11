@@ -1,6 +1,6 @@
 {
   "name": "htp1_sound",
-  "updated": "2026-11-10",
+  "updated": "2026-11-09",
   "addons": [
     {
       "id": "airplay2",
@@ -15,20 +15,6 @@
       "url": "https://github.com/saurus8119/htp1_sound/releases/download/v2.0.71/htp1-addon-airplay2-2.0.71.tar.gz",
       "sha256": "3a0ed02ef8c3d79f765d8ba69704ec33fcfe6d2e043f99a191097921bf3f8887",
       "size": 862255
-    },
-    {
-      "id": "caldera",
-      "version": "1.1.7",
-      "label": "Caldera Music",
-      "summary": "Headless Caldera Music player with Plex sign-in and ALSA default:I2S output",
-      "requires": {
-        "capabilities": [
-          "source/1"
-        ]
-      },
-      "url": "https://github.com/saurus8119/htp1_sound/releases/download/v1.1.7/htp1-addon-caldera-1.1.7.tar.gz",
-      "sha256": "6de9850d1779472959b45593837dde751274ff74e0efb0451e24cdd8ff2bc9cb",
-      "size": 22266645
     }
   ]
 }
