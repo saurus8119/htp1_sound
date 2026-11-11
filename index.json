@@ -3,20 +3,6 @@
   "updated": "2026-11-10T00:00:00Z",
   "addons": [
     {
-      "id": "airplay2",
-      "version": "2.0.71",
-      "label": "HTPlay-1",
-      "summary": "AirPlay receiver (Shairport Sync 5.6.1; NQPTP 1.2.9; SMI11; FFmpeg; SoXR)",
-      "requires": {
-        "capabilities": [
-          "source/1"
-        ]
-      },
-      "url": "https://github.com/saurus8119/htp1_sound/releases/download/v2.0.71/htp1-addon-airplay2-2.0.71.tar.gz",
-      "sha256": "3a0ed02ef8c3d79f765d8ba69704ec33fcfe6d2e043f99a191097921bf3f8887",
-      "size": 862255
-    },
-    {
       "id": "caldera",
       "version": "1.1.5",
       "label": "Caldera Music",
