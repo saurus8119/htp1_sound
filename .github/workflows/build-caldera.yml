@@ -103,10 +103,7 @@ jobs:
           TAG="v${VERSION}"
           ARCHIVE="${{ steps.package.outputs.archive }}"
           CHECKSUM="${{ steps.package.outputs.checksum }}"
-          gh release create "$TAG" "$ARCHIVE" "$CHECKSUM" \
-            --target "$GITHUB_SHA" \
-            --title "Caldera Music $VERSION" \
-            --notes "Installable HTP-1 Caldera Music add-on (ID: $ADDON_ID). Includes Caldera ARMHF runtime libraries, the matching dynamic loader, Plex PIN sign-in page, and SHA256 checksum."
+          gh release upload "$TAG" "$ARCHIVE" "$CHECKSUM" --clobber
 
       - name: Publish Caldera in the HTP-1 add-on catalog
         if: github.event_name == 'push' && startsWith(github.event.head_commit.message, 'Publish Caldera ')
