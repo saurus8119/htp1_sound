@@ -1,8 +1,7 @@
 [Unit]
 Description=Caldera Music Player
-After=network-online.target sound.target caldera-auth.timer
+After=network-online.target sound.target
 Wants=network-online.target
-Requires=caldera-auth.timer
 
 [Service]
 Type=simple
