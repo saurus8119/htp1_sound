@@ -32,3 +32,8 @@ fi
 
 chmod 0644 "$TMP_FILE"
 mv -f "$TMP_FILE" "$AUTH_FILE"
+
+# Stop periodic token checks once Plex authorization is saved.
+if [ -n "$TOKEN" ] && [ "$TOKEN" != "null" ] && [ "$TOKEN" != '\"\"' ]; then
+    systemctl stop caldera-auth.timer 2>/dev/null || true
+fi
