@@ -18,17 +18,17 @@
     },
     {
       "id": "caldera",
-      "version": "1.1.6",
+      "version": "1.1.7",
       "label": "Caldera Music",
-      "summary": "Headless Caldera Music player with Plex sign-in and playback settings",
+      "summary": "Headless Caldera Music player with Plex sign-in and ALSA default:I2S output",
       "requires": {
         "capabilities": [
           "source/1"
         ]
       },
-      "url": "https://github.com/saurus8119/htp1_sound/releases/download/v1.1.6/htp1-addon-caldera-1.1.6.tar.gz",
-      "sha256": "031c6f8bf92b4b9642ede28921ef91aa8fa87cfddc49ab9cddc821572512fc83",
-      "size": 22270978
+      "url": "https://github.com/saurus8119/htp1_sound/releases/download/v1.1.7/htp1-addon-caldera-1.1.7.tar.gz",
+      "sha256": "6de9850d1779472959b45593837dde751274ff74e0efb0451e24cdd8ff2bc9cb",
+      "size": 22266645
     }
   ]
 }
