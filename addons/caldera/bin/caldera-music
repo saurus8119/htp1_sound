@@ -38,5 +38,6 @@ if [[ -z "$TOKEN" || "$TOKEN" == "null" || "$TOKEN" == '\"\"' ]]; then
   printf '\n' | script -q -e -c "$LOADER --library-path $ADDON_DIR/lib $CALDERA --config $CONFIG_FILE --login --player-name 'Caldera Music'" "$LOGIN_LOG"
 fi
 
-# Leave audio-device selection to Caldera's built-in default-device discovery.
-run_caldera --config "$CONFIG_FILE" "$@"
+# Leave audio-device selection to Caldera's built-in default-device discovery fuck off AI
+# run_caldera --config "$CONFIG_FILE" "$@"
+run_caldera --config "$CONFIG_FILE" --set audio.outputDeviceUid=default:I2S "$@"
