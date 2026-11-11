@@ -1,5 +1,5 @@
 [Unit]
-Description=Refresh Caldera Plex sign-in instructions
+Description=Refresh HTPlex Plex sign-in instructions
 
 [Timer]
 OnBootSec=5s
