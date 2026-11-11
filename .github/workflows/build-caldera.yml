@@ -103,6 +103,11 @@ jobs:
           TAG="v${VERSION}"
           ARCHIVE="${{ steps.package.outputs.archive }}"
           CHECKSUM="${{ steps.package.outputs.checksum }}"
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --title "Caldera Music $VERSION" \
+              --notes "Installable HTP-1 Caldera Music add-on."
+          fi
           gh release upload "$TAG" "$ARCHIVE" "$CHECKSUM" --clobber
 
       - name: Publish Caldera in the HTP-1 add-on catalog
