@@ -39,4 +39,14 @@ if [[ -z "$TOKEN" || "$TOKEN" == "null" || "$TOKEN" == '\"\"' ]]; then
 fi
 
 # Leave audio-device selection to Caldera's built-in default-device discovery.
+# Apply source-matching, unprocessed playback preferences before starting the player.
+for preference in \
+  audio.sampleRate=0 \
+  audio.channels=0 \
+  audio.masterVolume=100 \
+  player.loudnessLeveling=no \
+  player.sweetFades=no; do
+  "$LOADER" --library-path "$ADDON_DIR/lib" "$CALDERA" --config "$CONFIG_FILE" --set "$preference"
+done
+
 run_caldera --config "$CONFIG_FILE" "$@"
