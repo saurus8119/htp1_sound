@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Caldera Music — Plex sign-in</title>
+<title>HTPlex — Plex sign-in</title>
 <style>
 :root{color-scheme:dark;font:15px/1.55 system-ui,sans-serif;background:#151719;color:#e8e8e8}
 body{margin:0;padding:28px 22px;max-width:760px;margin-inline:auto}
@@ -19,17 +19,17 @@ button{background:#30363b;color:#fff;border:1px solid #555;border-radius:5px;pad
 </style>
 </head>
 <body>
-<h1>Caldera Music</h1>
-<p>Link Caldera to your Plex account.</p>
+<h1>HTPlex</h1>
+<p>Link HTPlex to your Plex account.</p>
 <section class="panel">
   <p><strong>1.</strong> Open <a href="https://plex.tv/link" target="_blank" rel="noopener noreferrer">plex.tv/link</a> on your phone or computer.</p>
   <p><strong>2.</strong> Enter the PIN shown below.</p>
   <p><strong>3.</strong> Approve the sign-in with Plex. This page updates automatically.</p>
   <div id="pin" hidden></div>
-  <p id="status" aria-live="polite">Waiting for Caldera's sign-in PIN…</p>
+  <p id="status" aria-live="polite">Waiting for HTPlex's sign-in PIN…</p>
 </section>
-<h2>Caldera sign-in output</h2>
-<pre id="output">Waiting for Caldera to start Plex sign-in…</pre>
+<h2>HTPlex sign-in output</h2>
+<pre id="output">Waiting for HTPlex to start Plex sign-in…</pre>
 <button id="refresh" type="button">Refresh</button>
 <script>
 (() => {
@@ -56,7 +56,7 @@ button{background:#30363b;color:#fff;border:1px solid #555;border-radius:5px;pad
           status.textContent = 'Enter this PIN at plex.tv/link.';
         } else {
           pin.hidden = true;
-          status.textContent = 'Waiting for Caldera to provide the Plex PIN…';
+          status.textContent = 'Waiting for HTPlex to provide the Plex PIN…';
         }
       }
     } catch (error) {
