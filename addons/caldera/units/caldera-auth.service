@@ -1,5 +1,5 @@
 [Unit]
-Description=Publish Caldera Plex sign-in instructions for its add-on page
+Description=Publish HTPlex Plex sign-in instructions for its add-on page
 
 [Service]
 Type=oneshot
