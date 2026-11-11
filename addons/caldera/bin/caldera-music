@@ -25,7 +25,7 @@ fi
 
 # HTPlex uses the bundled player for Plex authentication and playback.
 TOKEN="$( "$LOADER" --library-path "$ADDON_DIR/lib" "$CALDERA" --config "$CONFIG_FILE" --get plex.token 2>/dev/null || true )"
-if [[ -z "$TOKEN" || "$TOKEN" == "null" || "$TOKEN" == '\"\"' ]]; then
+if [[ -z "$TOKEN" || "$TOKEN" == "null" || "$TOKEN" == '\\"\\"' ]]; then
   : > "$LOGIN_LOG"
   if ! command -v script >/dev/null 2>&1; then
     printf '%s\n' "Cannot start Caldera PIN sign-in: the system 'script' utility is unavailable." > "$LOGIN_LOG"
@@ -45,7 +45,10 @@ for preference in \
   audio.channels=0 \
   audio.masterVolume=100 \
   player.loudnessLeveling=no \
-  player.sweetFades=no; do
+  player.sweetFades=no \
+  streaming.maxBitrateWiFi=0 \
+  streaming.maxBitrateCellular=0 \
+  streaming.downmixToStereo=no; do
   "$LOADER" --library-path "$ADDON_DIR/lib" "$CALDERA" --config "$CONFIG_FILE" --set "$preference"
 done
 
