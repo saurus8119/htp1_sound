@@ -1,5 +1,5 @@
 [Unit]
-Description=Caldera Music Player
+Description=HTPlex Network Player
 After=network-online.target sound.target
 Wants=network-online.target
 
