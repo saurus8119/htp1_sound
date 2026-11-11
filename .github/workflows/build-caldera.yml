@@ -23,6 +23,20 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v4
 
+      - name: Check whether this version needs publishing
+        id: publish_check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(jq -er '.version' addons/caldera/addon.json)"
+          if gh release view "v${VERSION}" >/dev/null 2>&1; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Enable ARM emulation
         uses: docker/setup-qemu-action@v3
         with:
@@ -111,7 +125,7 @@ jobs:
           retention-days: 14
 
       - name: Publish Caldera GitHub Release
-        if: github.event_name == 'push' && startsWith(github.event.head_commit.message, 'Publish Caldera ')
+        if: steps.publish_check.outputs.publish == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -130,7 +144,7 @@ jobs:
           gh release upload "$TAG" "$ARCHIVE" "$CHECKSUM" --clobber
 
       - name: Publish Caldera in the HTP-1 add-on catalog
-        if: github.event_name == 'push' && startsWith(github.event.head_commit.message, 'Publish Caldera ')
+        if: steps.publish_check.outputs.publish == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
