@@ -1,6 +1,6 @@
 # HTPlex Project Handoff
 
-Last reviewed: 2026-11-11  
+Last reviewed: 2026-11-12  
 Repository: https://github.com/saurus8119/htp1_sound  
 Primary branch: `main`  
 Product name: **HTPlex**  
@@ -18,7 +18,7 @@ This document is the project source-of-truth handoff. Update it when behavior, r
 - The HTP-1 catalog `index.json` currently lists version 1.2.8 with the same URL, checksum, and size.
 - The latest observed `main` commit is `06c88674349ff741844e22316b64c716b1729ccf`, titled `Publish HTPlex 1.2.8 in add-on catalog`.
 - The 1.2.8 ARMv7 package and GitHub release assets were verified in GitHub. This does **not** mean the release was installed or tested on the user's HTP-1.
-- No 1.2.9 release is required or requested at this point.
+- Version 1.2.9 is being prepared with a 100 ms player audio buffer and one-track prefetch. Do not mark it released until the ARMv7 workflow, release assets, checksum, and catalog entry are independently verified.
 
 ## 2. Non-negotiable project constraints
 
@@ -59,6 +59,8 @@ The launcher in the repository currently sets these preferences before starting 
 audio.sampleRate=0
 audio.channels=0
 audio.masterVolume=100
+audio.audioBufferMs=100
+cache.precacheCount=1
 player.loudnessLeveling=no
 player.sweetFades=no
 streaming.maxBitrateWiFi=0
@@ -162,6 +164,14 @@ Changes included:
 - Added the FIFO scheduling policy at priority 45 and the cgroup placement command to `caldera.service`.
 - Built and published as an ARMv7 add-on.
 - Release and catalog currently verified; device behavior remains unverified.
+
+### 1.2.9 — audio buffering and conservative prefetch
+- Sets `audio.audioBufferMs=100` to request a 100 ms player audio buffer.
+- Sets `cache.precacheCount=1` to prefetch one upcoming track.
+- Leaves Caldera's disk-cache size limit unchanged; HTP-1 free storage has not been measured.
+- Preserves the existing sample-rate, channel, volume, loudness, fade, bitrate, and downmix preferences.
+- Does not change system-wide ALSA settings, ALSA period sizes, service scheduling, cgroup placement, input integration, or the Caldera binary.
+- Device playback and startup-stutter behavior remain unverified until tested on the HTP-1.
 
 ## 8. Build and release workflow
 
