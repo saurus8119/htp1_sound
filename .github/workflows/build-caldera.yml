@@ -141,6 +141,10 @@ jobs:
             gh release create "$TAG" \
               --title "HTPlex $VERSION" \
               --notes-file "docs/RELEASE-NOTES-$VERSION.md"
+          else
+            gh release edit "$TAG" \
+              --title "HTPlex $VERSION" \
+              --notes-file "docs/RELEASE-NOTES-$VERSION.md"
           fi
           gh release upload "$TAG" "$ARCHIVE" "$CHECKSUM" --clobber
 
