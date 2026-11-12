@@ -10,17 +10,18 @@ This document is the project source-of-truth handoff. Update it when behavior, r
 
 ## 1. Current status
 
-- Latest published release: **1.2.9** (1.2.10 is being prepared).
-- Release page: https://github.com/saurus8119/htp1_sound/releases/tag/v1.2.9
-- Installer: https://github.com/saurus8119/htp1_sound/releases/download/v1.2.9/htp1-addon-caldera-1.2.9.tar.gz
-- SHA256: `6ecc29a69652b53e92aa2dafbb450a5abc02ed4e582a4aed28bab3139013f9da`
-- Installer size: `8535548` bytes.
-- The HTP-1 catalog `index.json` lists version 1.2.9 with the same URL, checksum, and size.
-- Successful ARMv7 build/release run: https://github.com/saurus8119/htp1_sound/actions/runs/43254287314 (commit `4ec9ff446b6bd10b2ce0c4aeeb0414b8b2c04ba4`).
-- The 1.2.9 artifact was downloaded and inspected: its launcher sets `audio.audioBufferMs=100` and `cache.precacheCount=1`; the archive checksum was independently recalculated and matched.
-- The build diagnostic reports Caldera Music Headless `1.1.0 (5729b05)`. The build still obtains Caldera through the live official installer; this version is not pinned and the player advertises background self-updating.
-- This verifies the ARMv7 package, GitHub release assets, checksum, and catalog entry. It does **not** mean the release was installed or tested on the user's HTP-1.
-- Final workflow run succeeded: https://github.com/saurus8119/htp1_sound/actions/runs/43254859683 (commit `4d794f0063bea9ae33979d6bd6912378ab12da58`). It rebuilt the ARMv7 package, updated the GitHub release description with the detailed 1.2.9 notes, refreshed the assets, and completed the catalog step successfully.
+- Latest published release: **1.2.10**.
+- Release page: https://github.com/saurus8119/htp1_sound/releases/tag/v1.2.10
+- Installer: https://github.com/saurus8119/htp1_sound/releases/download/v1.2.10/htp1-addon-caldera-1.2.10.tar.gz
+- SHA256: `567e5c1d58162b8094dadaab4e715c1aa4af381d4844b2af9b5be0eea688fd19`
+- Installer size: `8535563` bytes.
+- The HTP-1 catalog `index.json` lists 1.2.10 with the same URL, checksum, and size.
+- Package-only workflow run: https://github.com/saurus8119/htp1_sound/actions/runs/43261550631 (commit `bcc6fb2fa1523baa1b1c51d79bdf5776edb038ef`); all steps succeeded.
+- 1.2.10 was repackaged from the 1.2.9 release. The workflow verified the prior archive checksum and compared the Caldera executable and bundled-library fingerprints before overlay, after overlay, and after repackaging. The runtime payload was unchanged.
+- The package-only workflow did not run Docker, QEMU, or the official Caldera installer.
+- The published release is not a draft or prerelease. Its archive was downloaded again by the workflow and its SHA256 passed; the catalog entry was then read back and verified.
+- This verifies the package, release assets, checksum, and catalog entry. It does **not** mean 1.2.10 was installed or playback was tested on the user's HTP-1.
+- The earlier 1.2.10 full-build attempt did build and package successfully but failed during release creation because its release-notes file was not yet present in that commit. The corrected package-only workflow completed the release.
 
 ## 2. Non-negotiable project constraints
 
@@ -175,12 +176,12 @@ Changes included:
 - Does not change system-wide ALSA settings, ALSA period sizes, service scheduling, cgroup placement, input integration, or the Caldera binary.
 - Device playback and startup-stutter behavior remain unverified until tested on the HTP-1.
 
-### 1.2.10 — remove explicit streaming bitrate overrides (in preparation)
+### 1.2.10 — remove explicit streaming bitrate overrides (released)
 - Removes `streaming.maxBitrateWiFi=0` and `streaming.maxBitrateCellular=0` from the launcher preference loop.
 - Does not write replacement values for either preference; Caldera's defaults apply.
 - Retains `audio.audioBufferMs=100`, `cache.precacheCount=1`, and the other existing preferences.
 - Retains `streaming.downmixToStereo=no`.
-- Release/build/catalog status is pending verification.
+- Published and verified by package-only workflow run https://github.com/saurus8119/htp1_sound/actions/runs/43261550631.\n- Reused the 1.2.9 executable and library payload; runtime fingerprints were unchanged.
 
 ## 8. Build and release workflow
 
@@ -227,7 +228,7 @@ For every requested release, verify all of the following independently:
 - [ ] `index.json` points to the correct version, archive URL, SHA256, and byte size.
 - [ ] Do not claim physical HTP-1 installation or playback testing unless actually performed.
 
-The 1.2.10 workflow attempt exposed a missing release-notes file at the time the job checked out its commit. The ARMv7 build and archive packaging succeeded, but release publication failed at `gh release create` because the notes file was not in that commit; catalog publication was skipped. The notes were added in the next commit. The revised workflows validate notes before expensive work and verify release assets and catalog contents before reporting success.
+The initial 1.2.10 run exposed a missing release-notes file at the commit it checked out. The ARMv7 build and archive packaging succeeded, but release publication failed and catalog publication was skipped. The notes were added in the next commit. During rollout, malformed YAML in the first package-only workflow revision was caught by GitHub before any job steps ran and corrected. The final package-only run completed successfully; both workflows now validate release notes before expensive work and verify published release assets and catalog contents before reporting success.
 
 ## 9. Known functional questions / unverified items
 
