@@ -12,6 +12,12 @@ on:
 permissions:
   contents: write
 
+# Keep only the newest source revision building; earlier push-triggered builds
+# are superseded when another commit lands during preparation.
+concurrency:
+  group: htpl-ex-armv7-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-24.04
