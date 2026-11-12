@@ -48,8 +48,6 @@ for preference in \
   cache.precacheCount=1 \
   player.loudnessLeveling=no \
   player.sweetFades=no \
-  streaming.maxBitrateWiFi=0 \
-  streaming.maxBitrateCellular=0 \
   streaming.downmixToStereo=no; do
   "$LOADER" --library-path "$ADDON_DIR/lib" "$CALDERA" --config "$CONFIG_FILE" --set "$preference"
 done
