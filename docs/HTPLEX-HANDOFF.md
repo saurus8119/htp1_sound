@@ -66,8 +66,6 @@ audio.audioBufferMs=100
 cache.precacheCount=1
 player.loudnessLeveling=no
 player.sweetFades=no
-streaming.maxBitrateWiFi=0
-streaming.maxBitrateCellular=0
 streaming.downmixToStereo=no
 ```
 
@@ -181,7 +179,8 @@ Changes included:
 - Does not write replacement values for either preference; Caldera's defaults apply.
 - Retains `audio.audioBufferMs=100`, `cache.precacheCount=1`, and the other existing preferences.
 - Retains `streaming.downmixToStereo=no`.
-- Published and verified by package-only workflow run https://github.com/saurus8119/htp1_sound/actions/runs/43261550631.\n- Reused the 1.2.9 executable and library payload; runtime fingerprints were unchanged.
+- Published and verified by package-only workflow run https://github.com/saurus8119/htp1_sound/actions/runs/43261550631.
+- Reused the 1.2.9 executable and library payload; runtime fingerprints were unchanged.
 
 ## 8. Build and release workflow
 
