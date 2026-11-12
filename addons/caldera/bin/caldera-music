@@ -44,6 +44,7 @@ for preference in \
   audio.sampleRate=0 \
   audio.channels=0 \
   audio.masterVolume=100 \
+  audio.audioBufferMs=100 \
   player.loudnessLeveling=no \
   player.sweetFades=no \
   streaming.maxBitrateWiFi=0 \
