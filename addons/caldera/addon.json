@@ -1,6 +1,6 @@
 {
   "id": "caldera",
-  "version": "1.2.12",
+  "version": "1.2.13",
   "label": "HTPlex",
   "summary": "HTPlex network music player with Plex sign-in",
   "requires": {
