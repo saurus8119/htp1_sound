@@ -16,6 +16,10 @@
 - Keep stereo downmix disabled.
 - Keep Caldera's default ALSA device discovery and existing service scheduling.
 
+## Packaging scope
+
+- This launcher-preference update reuses the previously published Caldera ARMv7 executable and bundled libraries; it does not rebuild or replace the player runtime.
+
 ## Scope
 
 No ALSA system configuration, ALSA period size, disk-cache size limit, service scheduling, input integration, or Caldera binary version is changed.
