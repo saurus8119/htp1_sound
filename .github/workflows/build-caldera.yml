@@ -149,6 +149,29 @@ jobs:
           fi
           gh release upload "$TAG" "$ARCHIVE" "$CHECKSUM" --clobber
 
+      - name: Verify published HTPlex release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(jq -er '.version' addons/caldera/addon.json)"
+          TAG="v$VERSION"
+          ARCHIVE_NAME="htp1-addon-caldera-$VERSION.tar.gz"
+          CHECKSUM_NAME="$ARCHIVE_NAME.sha256"
+          gh release view "$TAG" --json isDraft,isPrerelease,assets |
+            jq -e --arg archive "$ARCHIVE_NAME" --arg checksum "$CHECKSUM_NAME" '
+              .isDraft == false and .isPrerelease == false and
+              ([.assets[].name] | index($archive) != null) and
+              ([.assets[].name] | index($checksum) != null)
+            ' >/dev/null
+          mkdir -p "$RUNNER_TEMP/published-release"
+          gh release download "$TAG" \
+            --pattern "$ARCHIVE_NAME" \
+            --pattern "$CHECKSUM_NAME" \
+            --dir "$RUNNER_TEMP/published-release"
+          (cd "$RUNNER_TEMP/published-release" && sha256sum -c "$CHECKSUM_NAME")
+
       - name: Publish Caldera in the HTP-1 add-on catalog
         if: success()
         env:
@@ -201,3 +224,11 @@ jobs:
             git commit -m "Publish HTPlex $VERSION in add-on catalog"
             git push origin main
           fi
+
+          git fetch origin main
+          git show origin/main:index.json |
+            jq -e --arg version "$VERSION" --arg url "$URL" --arg sha256 "$SHA256" --argjson size "$SIZE" '
+              any(.addons[]; .id == "caldera" and .version == $version and
+                  .url == $url and .sha256 == $sha256 and .size == $size)
+            ' >/dev/null
+          echo "GitHub release assets and catalog entry verified for HTPlex $VERSION."
