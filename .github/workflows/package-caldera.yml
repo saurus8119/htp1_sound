@@ -80,20 +80,20 @@ jobs:
             printf '%s' "$RELEASES" |
               jq -r '.[] | select(.name | startswith("HTPlex ")) | select(.isDraft == false and .isPrerelease == false) | .tagName' |
               TARGET_VERSION="$TARGET_VERSION" python3 -c '
-import os, re, sys
-target = tuple(map(int, os.environ["TARGET_VERSION"].split(".")))
-candidates = []
-for line in sys.stdin:
-    tag = line.strip()
-    match = re.fullmatch(r"v?(\d+)\.(\d+)\.(\d+)", tag)
-    if match:
-        version = tuple(map(int, match.groups()))
-        if version < target:
-            candidates.append((version, tag))
-if not candidates:
-    raise SystemExit("No earlier published HTPlex release is available as a runtime base.")
-print(max(candidates)[1])
-'
+          import os, re, sys
+          target = tuple(map(int, os.environ["TARGET_VERSION"].split(".")))
+          candidates = []
+          for line in sys.stdin:
+              tag = line.strip()
+              match = re.fullmatch(r"v?(\d+)\.(\d+)\.(\d+)", tag)
+              if match:
+                  version = tuple(map(int, match.groups()))
+                  if version < target:
+                      candidates.append((version, tag))
+          if not candidates:
+              raise SystemExit("No earlier published HTPlex release is available as a runtime base.")
+          print(max(candidates)[1])
+          '
           )"
 
           mkdir -p "$RUNNER_TEMP/htplex-base"
