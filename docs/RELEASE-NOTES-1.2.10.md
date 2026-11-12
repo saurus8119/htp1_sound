@@ -18,7 +18,7 @@
 
 ## Packaging scope
 
-- This launcher-preference update reuses the previously published Caldera ARMv7 executable and bundled libraries; it does not rebuild or replace the player runtime.
+- This launcher-preference update reuses the Caldera ARMv7 executable and bundled libraries from HTPlex 1.2.9; the package workflow verifies their hashes are unchanged.
 
 ## Scope
 
