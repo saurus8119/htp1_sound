@@ -1,0 +1,312 @@
+name: Package HTPlex without rebuilding the runtime
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - addons/caldera/**
+      - tools/pack.sh
+      - docs/RELEASE-NOTES-*.md
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# Serialize full-runtime and package-only releases so they cannot publish
+# competing versions or overwrite the catalog at the same time.
+concurrency:
+  group: htpl-ex-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Classify this change
+        id: changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          SKIP=false
+          if [[ "${GITHUB_EVENT_NAME}" == "push" ]]; then
+            BEFORE="${{ github.event.before }}"
+            if [[ "$BEFORE" != "0000000000000000000000000000000000000000" ]]; then
+              git diff --name-only "$BEFORE" "$GITHUB_SHA" > "$RUNNER_TEMP/changed-files.txt"
+              if grep -Eq '^addons/caldera/(build/|bin/caldera-music\.bin$|lib/)' "$RUNNER_TEMP/changed-files.txt"; then
+                SKIP=true
+                echo "A runtime/build input changed; the full ARMv7 workflow owns this release."
+              fi
+            fi
+          fi
+          echo "skip=$SKIP" >> "$GITHUB_OUTPUT"
+
+      - name: Skip package-only path for runtime changes
+        if: steps.changes.outputs.skip == 'true'
+        run: |
+          echo "Skipped: runtime changes are handled by Build HTPlex ARMv7." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Validate release metadata
+        if: steps.changes.outputs.skip != 'true'
+        id: metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(jq -er '.version' addons/caldera/addon.json)"
+          ADDON_ID="$(jq -er '.id' addons/caldera/addon.json)"
+          NOTES="docs/RELEASE-NOTES-$VERSION.md"
+          test "$ADDON_ID" = "caldera"
+          test -s "$NOTES"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "notes=$NOTES" >> "$GITHUB_OUTPUT"
+          echo "Preparing HTPlex $VERSION by reusing the previously released ARMv7 runtime."
+
+      - name: Download the previous HTPlex runtime package
+        if: steps.changes.outputs.skip != 'true'
+        id: base
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_VERSION: ${{ steps.metadata.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          RELEASES="$(gh release list --limit 100 --json tagName,name,isDraft,isPrerelease)"
+          BASE_TAG="$(
+            printf '%s' "$RELEASES" |
+              jq -r '.[] | select(.name | startswith("HTPlex ")) | select(.isDraft == false and .isPrerelease == false) | .tagName' |
+              TARGET_VERSION="$TARGET_VERSION" python3 -c '
+import os, re, sys
+target = tuple(map(int, os.environ["TARGET_VERSION"].split(".")))
+candidates = []
+for line in sys.stdin:
+    tag = line.strip()
+    match = re.fullmatch(r"v?(\d+)\.(\d+)\.(\d+)", tag)
+    if match:
+        version = tuple(map(int, match.groups()))
+        if version < target:
+            candidates.append((version, tag))
+if not candidates:
+    raise SystemExit("No earlier published HTPlex release is available as a runtime base.")
+print(max(candidates)[1])
+'
+          )"
+
+          mkdir -p "$RUNNER_TEMP/htplex-base"
+          gh release download "$BASE_TAG" \
+            --pattern 'htp1-addon-caldera-*.tar.gz' \
+            --pattern 'htp1-addon-caldera-*.tar.gz.sha256' \
+            --dir "$RUNNER_TEMP/htplex-base"
+
+          ARCHIVE="$(find "$RUNNER_TEMP/htplex-base" -maxdepth 1 -type f -name 'htp1-addon-caldera-*.tar.gz' -print -quit)"
+          test -n "$ARCHIVE"
+          CHECKSUM="$ARCHIVE.sha256"
+          test -s "$CHECKSUM"
+          (cd "$(dirname "$ARCHIVE")" && sha256sum -c "$(basename "$CHECKSUM")")
+
+          echo "tag=$BASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "archive=$ARCHIVE" >> "$GITHUB_OUTPUT"
+
+      - name: Overlay add-on files and package without compiling
+        if: steps.changes.outputs.skip != 'true'
+        id: package
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          BASE_ARCHIVE="${{ steps.base.outputs.archive }}"
+          STAGE="$RUNNER_TEMP/htplex-stage"
+          OUT="$RUNNER_TEMP/htplex-package"
+          VERIFY="$RUNNER_TEMP/htplex-verify"
+          mkdir -p "$STAGE" "$OUT" "$VERIFY"
+          tar -xzf "$BASE_ARCHIVE" -C "$STAGE"
+          ADDON="$STAGE/caldera"
+          test -s "$ADDON/bin/caldera-music.bin"
+          test -x "$ADDON/lib/ld-linux-armhf.so.3"
+          test -s "$ADDON/lib/libc.so.6"
+
+          runtime_fingerprint() {
+            (
+              cd "$1"
+              find bin/caldera-music.bin lib -type f -exec sha256sum {} + | LC_ALL=C sort
+              find bin/caldera-music.bin lib -type l -printf 'LINK %p -> %l\n' | LC_ALL=C sort
+            )
+          }
+
+          runtime_fingerprint "$ADDON" > "$RUNNER_TEMP/runtime-before.sha256"
+
+          # Replace only source-controlled add-on files. Preserve the bundled
+          # Caldera executable and libraries from the previous verified release.
+          install -m 0644 addons/caldera/addon.json "$ADDON/addon.json"
+          if [[ -f addons/caldera/README.md ]]; then
+            install -m 0644 addons/caldera/README.md "$ADDON/README.md"
+          fi
+          rsync -a --delete --exclude='caldera-music.bin' addons/caldera/bin/ "$ADDON/bin/"
+          rsync -a --delete addons/caldera/units/ "$ADDON/units/"
+          rsync -a --delete addons/caldera/www/ "$ADDON/www/"
+
+          runtime_fingerprint "$ADDON" > "$RUNNER_TEMP/runtime-after.sha256"
+          diff -u "$RUNNER_TEMP/runtime-before.sha256" "$RUNNER_TEMP/runtime-after.sha256"
+
+          VERSION="$(jq -er '.version' "$ADDON/addon.json")"
+          test "$VERSION" = "${{ steps.metadata.outputs.version }}"
+          test "$(jq -er '.id' "$ADDON/addon.json")" = "caldera"
+
+          bash tools/pack.sh "$ADDON" caldera "$OUT"
+          ARCHIVE="$OUT/htp1-addon-caldera-$VERSION.tar.gz"
+          CHECKSUM="$ARCHIVE.sha256"
+          test -s "$ARCHIVE"
+          test -s "$CHECKSUM"
+          (cd "$OUT" && sha256sum -c "$(basename "$CHECKSUM")")
+
+          tar -xzf "$ARCHIVE" -C "$VERIFY"
+          runtime_fingerprint "$VERIFY/caldera" > "$RUNNER_TEMP/runtime-packaged.sha256"
+          diff -u "$RUNNER_TEMP/runtime-before.sha256" "$RUNNER_TEMP/runtime-packaged.sha256"
+
+          LIST="$RUNNER_TEMP/htplex-archive-list.txt"
+          tar -tzf "$ARCHIVE" > "$LIST"
+          grep -Fxq 'caldera/addon.json' "$LIST"
+          grep -Fxq 'caldera/bin/caldera-music' "$LIST"
+          grep -Fxq 'caldera/bin/caldera-music.bin' "$LIST"
+          grep -Fxq 'caldera/lib/ld-linux-armhf.so.3' "$LIST"
+          grep -Fxq 'caldera/units/caldera.service' "$LIST"
+          grep -Fxq 'caldera/www/index.html' "$LIST"
+
+          echo "archive=$ARCHIVE" >> "$GITHUB_OUTPUT"
+          echo "checksum=$CHECKSUM" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "base_tag=${{ steps.base.outputs.tag }}" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "### HTPlex package-only build"
+            echo "- Version: $VERSION"
+            echo "- Runtime source: ${{ steps.base.outputs.tag }}"
+            echo "- ARM Docker/QEMU build: **not run**"
+            echo "- Caldera executable and library hashes: unchanged and verified"
+            echo "- Package checksum: verified"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload installable package for inspection
+        if: steps.changes.outputs.skip != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: htpl-ex-caldera-${{ steps.package.outputs.version }}
+          path: |
+            ${{ steps.package.outputs.archive }}
+            ${{ steps.package.outputs.checksum }}
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Publish HTPlex GitHub Release
+        if: steps.changes.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.package.outputs.version }}"
+          TAG="v$VERSION"
+          ARCHIVE="${{ steps.package.outputs.archive }}"
+          CHECKSUM="${{ steps.package.outputs.checksum }}"
+          NOTES="${{ steps.metadata.outputs.notes }}"
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --title "HTPlex $VERSION" --notes-file "$NOTES"
+            gh release upload "$TAG" "$ARCHIVE" "$CHECKSUM" --clobber
+          else
+            gh release create "$TAG" "$ARCHIVE" "$CHECKSUM" \
+              --target "$GITHUB_SHA" \
+              --title "HTPlex $VERSION" \
+              --notes-file "$NOTES"
+          fi
+
+      - name: Verify published release assets
+        if: steps.changes.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.package.outputs.version }}"
+          TAG="v$VERSION"
+          ARCHIVE_NAME="htp1-addon-caldera-$VERSION.tar.gz"
+          CHECKSUM_NAME="$ARCHIVE_NAME.sha256"
+
+          gh release view "$TAG" --json isDraft,isPrerelease,assets |
+            jq -e --arg archive "$ARCHIVE_NAME" --arg checksum "$CHECKSUM_NAME" '
+              .isDraft == false and .isPrerelease == false and
+              ([.assets[].name] | index($archive) != null) and
+              ([.assets[].name] | index($checksum) != null)
+            ' >/dev/null
+
+          mkdir -p "$RUNNER_TEMP/published-release"
+          gh release download "$TAG" \
+            --pattern "$ARCHIVE_NAME" \
+            --pattern "$CHECKSUM_NAME" \
+            --dir "$RUNNER_TEMP/published-release"
+          (cd "$RUNNER_TEMP/published-release" && sha256sum -c "$CHECKSUM_NAME")
+
+      - name: Publish HTPlex in the HTP-1 add-on catalog
+        if: steps.changes.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.package.outputs.version }}"
+          ADDON_ID="caldera"
+          LABEL="$(jq -er '.label' addons/caldera/addon.json)"
+          SUMMARY="$(jq -er '.summary' addons/caldera/addon.json)"
+          REQUIRES="$(jq -c '.requires // {}' addons/caldera/addon.json)"
+          TAG="v$VERSION"
+          ARCHIVE="$RUNNER_TEMP/published-release/htp1-addon-caldera-$VERSION.tar.gz"
+          CHECKSUM="$ARCHIVE.sha256"
+          SHA256="$(awk '{print $1}' "$CHECKSUM")"
+          SIZE="$(stat -c%s "$ARCHIVE")"
+          URL="https://github.com/saurus8119/htp1_sound/releases/download/$TAG/htp1-addon-caldera-$VERSION.tar.gz"
+          UPDATED="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+          git fetch origin main
+          git checkout -B main origin/main
+          jq \
+            --arg id "$ADDON_ID" \
+            --arg version "$VERSION" \
+            --arg label "$LABEL" \
+            --arg summary "$SUMMARY" \
+            --arg url "$URL" \
+            --arg sha256 "$SHA256" \
+            --argjson size "$SIZE" \
+            --argjson requires "$REQUIRES" \
+            --arg updated "$UPDATED" \
+            '.updated = $updated |
+             .addons = ((.addons // []) | map(select(.id != $id)) + [{
+               id: $id,
+               version: $version,
+               label: $label,
+               summary: $summary,
+               requires: $requires,
+               url: $url,
+               sha256: $sha256,
+               size: $size
+             }])' index.json > index.json.tmp
+          mv index.json.tmp index.json
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+users.noreply.github.com"
+          git add index.json
+          if ! git diff --cached --quiet; then
+            git commit -m "Publish HTPlex $VERSION in add-on catalog"
+            git push origin main
+          fi
+
+          git fetch origin main
+          git show origin/main:index.json |
+            jq -e --arg version "$VERSION" --arg url "$URL" --arg sha256 "$SHA256" --argjson size "$SIZE" '
+              any(.addons[]; .id == "caldera" and .version == $version and
+                  .url == $url and .sha256 == $sha256 and .size == $size)
+            ' >/dev/null
+          echo "GitHub release and HTP-1 catalog entry verified for HTPlex $VERSION."
