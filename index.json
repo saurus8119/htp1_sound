@@ -1,6 +1,6 @@
 {
   "name": "htp1_sound",
-  "updated": "2026-11-12T17:14:20Z",
+  "updated": "2026-11-12T17:26:03Z",
   "addons": [
     {
       "id": "caldera",
@@ -13,7 +13,7 @@
         ]
       },
       "url": "https://github.com/saurus8119/htp1_sound/releases/download/v1.2.11/htp1-addon-caldera-1.2.11.tar.gz",
-      "sha256": "4ee19e884a616dc9a20acbdffe06950cf8894f3235a9363bc661bd6a86c93f0d",
+      "sha256": "d74c2b92bc08913196441f6da076ee68333cbbe940633d9ea0106439e4c2d14c",
       "size": 8535564
     }
   ]
