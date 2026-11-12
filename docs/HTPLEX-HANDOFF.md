@@ -10,7 +10,7 @@ This document is the project source-of-truth handoff. Update it when behavior, r
 
 ## 1. Current status
 
-- Latest published release: **1.2.9**.
+- Latest published release: **1.2.9** (1.2.10 is being prepared).
 - Release page: https://github.com/saurus8119/htp1_sound/releases/tag/v1.2.9
 - Installer: https://github.com/saurus8119/htp1_sound/releases/download/v1.2.9/htp1-addon-caldera-1.2.9.tar.gz
 - SHA256: `6ecc29a69652b53e92aa2dafbb450a5abc02ed4e582a4aed28bab3139013f9da`
@@ -75,7 +75,7 @@ Important details:
 - `audio.sampleRate=0` and `audio.channels=0` leave format selection to the player's automatic/source-matching behavior; do not replace these casually.
 - `audio.masterVolume=100` is the established setting.
 - Loudness leveling and sweet fades are disabled.
-- The 1.2.7 additions set Wi-Fi and cellular maximum bitrate to zero and disable stereo downmix. This was intended to avoid bitrate-limit-triggered transcoding and downmixing.
+- 1.2.10 removes the explicit Wi-Fi and cellular bitrate overrides entirely; Caldera's own defaults now apply. Stereo downmix remains explicitly disabled.
 - **These settings do not guarantee “no transcoding at all.”** Plex may still transcode when the client/player cannot directly decode a media format or for other server/client compatibility reasons.
 - The user previously reported a 24-bit/96-kHz source being observed at 44.1 kHz in an earlier version and wanted playback to follow the incoming format. The 1.2.5 default-device/source-matching configuration was retained. Do not claim bit-perfect or sample-rate matching is verified without a device test.
 - Volume response had previously been described as slow, but the exact cause was not established. Do not state that FIFO scheduling fixes volume response; it is a testable hypothesis, not a confirmed fix.
@@ -171,9 +171,16 @@ Changes included:
 - Sets `audio.audioBufferMs=100` to request a 100 ms player audio buffer.
 - Sets `cache.precacheCount=1` to prefetch one upcoming track.
 - Leaves Caldera's disk-cache size limit unchanged; HTP-1 free storage has not been measured.
-- Preserves the existing sample-rate, channel, volume, loudness, fade, bitrate, and downmix preferences.
+- Preserves the existing sample-rate, channel, volume, loudness, fade, and downmix preferences; at that time it also retained the explicit bitrate overrides.
 - Does not change system-wide ALSA settings, ALSA period sizes, service scheduling, cgroup placement, input integration, or the Caldera binary.
 - Device playback and startup-stutter behavior remain unverified until tested on the HTP-1.
+
+### 1.2.10 — remove explicit streaming bitrate overrides (in preparation)
+- Removes `streaming.maxBitrateWiFi=0` and `streaming.maxBitrateCellular=0` from the launcher preference loop.
+- Does not write replacement values for either preference; Caldera's defaults apply.
+- Retains `audio.audioBufferMs=100`, `cache.precacheCount=1`, and the other existing preferences.
+- Retains `streaming.downmixToStereo=no`.
+- Release/build/catalog status is pending verification.
 
 ## 8. Build and release workflow
 
