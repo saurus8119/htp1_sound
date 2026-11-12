@@ -33,11 +33,10 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="$(jq -er '.version' addons/caldera/addon.json)"
-          if gh release view "v${VERSION}" >/dev/null 2>&1; then
-            echo "publish=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "publish=true" >> "$GITHUB_OUTPUT"
-          fi
+          # Every successful build publishes/replaces this version's assets
+          # and reconciles the catalog. This permits a verified rebuild to repair
+          # an incomplete or stale release instead of silently skipping publishing.
+          echo "publish=true" >> "$GITHUB_OUTPUT"
 
       - name: Enable ARM emulation
         uses: docker/setup-qemu-action@v3
