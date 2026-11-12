@@ -39,12 +39,13 @@ if [[ -z "$TOKEN" || "$TOKEN" == "null" || "$TOKEN" == '\\"\\"' ]]; then
 fi
 
 # Leave audio-device selection to Caldera's built-in default-device discovery.
-# Apply source-matching, unprocessed playback preferences before starting the player.
+# Apply source-matching playback, a modest audio buffer, and one-track prefetch.
 for preference in \
   audio.sampleRate=0 \
   audio.channels=0 \
   audio.masterVolume=100 \
   audio.audioBufferMs=100 \
+  cache.precacheCount=1 \
   player.loudnessLeveling=no \
   player.sweetFades=no \
   streaming.maxBitrateWiFi=0 \
