@@ -105,7 +105,7 @@ The current `addons/caldera/addon.json` includes:
 ```json
 {
   "id": "caldera",
-  "version": "1.2.8",
+  "version": "1.2.10",
   "label": "HTPlex",
   "summary": "HTPlex network music player with Plex sign-in",
   "requires": {
@@ -184,53 +184,50 @@ Changes included:
 
 ## 8. Build and release workflow
 
-Workflow file: `.github/workflows/build-caldera.yml`  
-Workflow name: `Build HTPlex ARMv7`
+The release process is split into two lanes so small add-on changes do not rebuild Caldera.
 
-Triggers:
-- Push to `main` when files under `addons/caldera/**`, the workflow file, or `tools/pack.sh` change.
-- Manual `workflow_dispatch`.
+### Package-only lane
 
-The workflow currently:
-1. Reads the version from `addons/caldera/addon.json`.
-2. Checks whether GitHub release `vVERSION` already exists.
-3. Sets up QEMU and Docker Buildx.
-4. Builds the ARMv7 installer environment from `addons/caldera/build`.
-5. Runs the official player installer under ARMv7 emulation.
-6. Stages the ARMHF player binary and selected runtime libraries.
-7. Runs `tools/pack.sh caldera dist`.
-8. Checks that the archive and checksum exist, verifies the checksum, and lists archive contents.
-9. Uploads the archive/checksum and diagnostics as a workflow artifact.
-10. If the release did not already exist at the initial check, creates/uploads the GitHub release assets and updates `index.json`.
+Workflow: `.github/workflows/package-caldera.yml`
 
-### Release workflow safeguards now in place
+- Triggered by ordinary changes under `addons/caldera/**`, `tools/pack.sh`, and versioned HTPlex release notes.
+- Skips itself when the same push changes runtime/build inputs.
+- Downloads the newest earlier published HTPlex package and verifies its checksum.
+- Overlays the repository-controlled add-on files while preserving `caldera-music.bin` and `lib/`.
+- Fingerprints the executable and all bundled libraries before/after overlay and after packaging; any runtime change fails the job.
+- Packages and publishes without Docker, QEMU, or rerunning the official Caldera installer.
+- Downloads the published release assets again, verifies their checksum, updates the catalog, and reads the catalog entry back for verification.
 
-The workflow now:
-- Serializes builds on the same ref and cancels superseded runs.
-- Rebuilds and republishes the current version's assets, allowing an incomplete or stale release to be repaired.
-- Creates a release when absent and updates its title/notes when it already exists.
-- Uses the versioned `docs/RELEASE-NOTES-VERSION.md` file for the release description.
-- Updates `index.json` and commits only when the catalog actually changed; an already-correct catalog is treated as success.
+### Full ARMv7 runtime lane
 
-These safeguards were added while preparing 1.2.9 after multiple overlapping builds raced to upload the same release assets.
+Workflow: `.github/workflows/build-caldera.yml`
+
+- Triggered only by changes under `addons/caldera/build/**`, replacement of `bin/caldera-music.bin`, or changes under `addons/caldera/lib/**`.
+- Manual `workflow_dispatch` is also available when a deliberate full runtime refresh is wanted.
+- Validates the matching release-notes file before starting Docker/QEMU.
+- Builds the ARMv7 installer environment, runs the official Caldera installer, assembles the runtime, and packages it.
+- Publishes the release, downloads the published assets to verify the checksum, then updates and verifies the catalog.
+
+Both workflows use the same non-cancelling release concurrency group. If a push changes runtime inputs and ordinary add-on files together, the package-only lane detects the runtime change and skips; the full runtime lane owns that release.
+
+Detailed behavior and change classification: `docs/HTPLEX-RELEASE-WORKFLOW.md`.
 
 ### Release verification checklist
 
 For every requested release, verify all of the following independently:
 
-- [ ] Intended source changes are present on `main`.
 - [ ] Version in `addons/caldera/addon.json` is correct.
 - [ ] The intended workflow run corresponds to the intended commit.
-- [ ] ARMv7 build job completed successfully (not merely queued or cancelled).
-- [ ] Packaging step succeeded.
+- [ ] The correct lane ran: package-only for source/config changes; full ARMv7 only for runtime changes.
+- [ ] Package contents match the intended source changes.
+- [ ] For package-only releases, executable and library fingerprints match the previous release.
 - [ ] Archive and `.sha256` asset exist on the GitHub release.
-- [ ] Downloaded/reported SHA256 matches the release asset and catalog.
-- [ ] GitHub release is published, not draft.
+- [ ] The release is published, not draft or prerelease.
+- [ ] The published archive is downloaded again and its checksum passes.
 - [ ] `index.json` points to the correct version, archive URL, SHA256, and byte size.
-- [ ] No unrelated source files or behavior changed.
-- [ ] Device testing is reported separately and only if actually performed.
+- [ ] Do not claim physical HTP-1 installation or playback testing unless actually performed.
 
-If a workflow is cancelled, inspect the run attempt and job logs before retrying. A cancellation is not a compiler failure. Do not keep bumping versions to work around an unexplained cancellation. If the release already exists, do not assume a rerun will update the catalog: inspect the workflow's publish gating and current catalog.
+The 1.2.10 workflow attempt exposed a missing release-notes file at the time the job checked out its commit. The ARMv7 build and archive packaging succeeded, but release publication failed at `gh release create` because the notes file was not in that commit; catalog publication was skipped. The notes were added in the next commit. The revised workflows validate notes before expensive work and verify release assets and catalog contents before reporting success.
 
 ## 9. Known functional questions / unverified items
 
