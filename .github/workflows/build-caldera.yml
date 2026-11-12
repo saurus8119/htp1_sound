@@ -135,7 +135,7 @@ jobs:
           if ! gh release view "$TAG" >/dev/null 2>&1; then
             gh release create "$TAG" \
               --title "HTPlex $VERSION" \
-              --notes "Installable HTP-1 HTPlex network music player add-on."
+              --notes-file "docs/RELEASE-NOTES-$VERSION.md"
           fi
           gh release upload "$TAG" "$ARCHIVE" "$CHECKSUM" --clobber
 
