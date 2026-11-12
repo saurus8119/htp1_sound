@@ -4,19 +4,19 @@ on:
   push:
     branches: [main]
     paths:
-      - addons/caldera/**
-      - .github/workflows/build-caldera.yml
-      - tools/pack.sh
+      - addons/caldera/build/**
+      - addons/caldera/bin/caldera-music.bin
+      - addons/caldera/lib/**
   workflow_dispatch:
 
 permissions:
   contents: write
 
-# Keep only the newest source revision building; earlier push-triggered builds
-# are superseded when another commit lands during preparation.
+# Runtime rebuilds and config-only packaging share one release lane.
+# Do not cancel a release halfway through publication.
 concurrency:
-  group: htpl-ex-armv7-${{ github.ref }}
-  cancel-in-progress: true
+  group: htpl-ex-release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -25,18 +25,19 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v4
 
-      - name: Check whether this version needs publishing
-        id: publish_check
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Validate release metadata before the expensive build
+        id: release_meta
         shell: bash
         run: |
           set -euo pipefail
           VERSION="$(jq -er '.version' addons/caldera/addon.json)"
-          # Every successful build publishes/replaces this version's assets
-          # and reconciles the catalog. This permits a verified rebuild to repair
-          # an incomplete or stale release instead of silently skipping publishing.
-          echo "publish=true" >> "$GITHUB_OUTPUT"
+          ADDON_ID="$(jq -er '.id' addons/caldera/addon.json)"
+          NOTES="docs/RELEASE-NOTES-$VERSION.md"
+          test "$ADDON_ID" = "caldera"
+          test -s "$NOTES"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "notes=$NOTES" >> "$GITHUB_OUTPUT"
+          echo "Full ARMv7 runtime rebuild requested for HTPlex $VERSION."
 
       - name: Enable ARM emulation
         uses: docker/setup-qemu-action@v3
@@ -126,7 +127,7 @@ jobs:
           retention-days: 14
 
       - name: Publish Caldera GitHub Release
-        if: steps.publish_check.outputs.publish == 'true'
+        if: success()
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -149,7 +150,7 @@ jobs:
           gh release upload "$TAG" "$ARCHIVE" "$CHECKSUM" --clobber
 
       - name: Publish Caldera in the HTP-1 add-on catalog
-        if: steps.publish_check.outputs.publish == 'true'
+        if: success()
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
