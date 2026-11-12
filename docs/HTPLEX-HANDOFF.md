@@ -20,7 +20,7 @@ This document is the project source-of-truth handoff. Update it when behavior, r
 - The 1.2.9 artifact was downloaded and inspected: its launcher sets `audio.audioBufferMs=100` and `cache.precacheCount=1`; the archive checksum was independently recalculated and matched.
 - The build diagnostic reports Caldera Music Headless `1.1.0 (5729b05)`. The build still obtains Caldera through the live official installer; this version is not pinned and the player advertises background self-updating.
 - This verifies the ARMv7 package, GitHub release assets, checksum, and catalog entry. It does **not** mean the release was installed or tested on the user's HTP-1.
-- A later workflow run is refreshing the GitHub release description with the detailed 1.2.9 notes; the published installer and catalog are already verified.
+- Final workflow run succeeded: https://github.com/saurus8119/htp1_sound/actions/runs/43254859683 (commit `4d794f0063bea9ae33979d6bd6912378ab12da58`). It rebuilt the ARMv7 package, updated the GitHub release description with the detailed 1.2.9 notes, refreshed the assets, and completed the catalog step successfully.
 
 ## 2. Non-negotiable project constraints
 
