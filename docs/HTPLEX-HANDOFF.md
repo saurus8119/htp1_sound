@@ -10,15 +10,17 @@ This document is the project source-of-truth handoff. Update it when behavior, r
 
 ## 1. Current status
 
-- Latest published release: **1.2.8**.
-- Release page: https://github.com/saurus8119/htp1_sound/releases/tag/v1.2.8
-- Installer: https://github.com/saurus8119/htp1_sound/releases/download/v1.2.8/htp1-addon-caldera-1.2.8.tar.gz
-- SHA256: `d1e59ee66385273070541eb35913bb9dcace26b4023a4b90a2afabda6f2a6cd8`
-- Installer size: `8535555` bytes.
-- The HTP-1 catalog `index.json` currently lists version 1.2.8 with the same URL, checksum, and size.
-- The latest observed `main` commit is `06c88674349ff741844e22316b64c716b1729ccf`, titled `Publish HTPlex 1.2.8 in add-on catalog`.
-- The 1.2.8 ARMv7 package and GitHub release assets were verified in GitHub. This does **not** mean the release was installed or tested on the user's HTP-1.
-- Version 1.2.9 is being prepared with a 100 ms player audio buffer and one-track prefetch. Do not mark it released until the ARMv7 workflow, release assets, checksum, and catalog entry are independently verified.
+- Latest published release: **1.2.9**.
+- Release page: https://github.com/saurus8119/htp1_sound/releases/tag/v1.2.9
+- Installer: https://github.com/saurus8119/htp1_sound/releases/download/v1.2.9/htp1-addon-caldera-1.2.9.tar.gz
+- SHA256: `6ecc29a69652b53e92aa2dafbb450a5abc02ed4e582a4aed28bab3139013f9da`
+- Installer size: `8535548` bytes.
+- The HTP-1 catalog `index.json` lists version 1.2.9 with the same URL, checksum, and size.
+- Successful ARMv7 build/release run: https://github.com/saurus8119/htp1_sound/actions/runs/43254287314 (commit `4ec9ff446b6bd10b2ce0c4aeeb0414b8b2c04ba4`).
+- The 1.2.9 artifact was downloaded and inspected: its launcher sets `audio.audioBufferMs=100` and `cache.precacheCount=1`; the archive checksum was independently recalculated and matched.
+- The build diagnostic reports Caldera Music Headless `1.1.0 (5729b05)`. The build still obtains Caldera through the live official installer; this version is not pinned and the player advertises background self-updating.
+- This verifies the ARMv7 package, GitHub release assets, checksum, and catalog entry. It does **not** mean the release was installed or tested on the user's HTP-1.
+- A later workflow run is refreshing the GitHub release description with the detailed 1.2.9 notes; the published installer and catalog are already verified.
 
 ## 2. Non-negotiable project constraints
 
@@ -194,19 +196,16 @@ The workflow currently:
 9. Uploads the archive/checksum and diagnostics as a workflow artifact.
 10. If the release did not already exist at the initial check, creates/uploads the GitHub release assets and updates `index.json`.
 
-### Important workflow weakness to fix carefully
+### Release workflow safeguards now in place
 
-The workflow's `publish_check` sets `publish=false` whenever the GitHub release tag already exists. Both the release-upload step **and the catalog-update step** are gated on `publish=true`. This means rerunning a workflow after a release exists will rebuild/package and upload an artifact, but will skip the catalog update—even if the catalog needs repair. It also means the workflow is not fully idempotent.
+The workflow now:
+- Serializes builds on the same ref and cancels superseded runs.
+- Rebuilds and republishes the current version's assets, allowing an incomplete or stale release to be repaired.
+- Creates a release when absent and updates its title/notes when it already exists.
+- Uses the versioned `docs/RELEASE-NOTES-VERSION.md` file for the release description.
+- Updates `index.json` and commits only when the catalog actually changed; an already-correct catalog is treated as success.
 
-The catalog step unconditionally runs `git commit` after generating `index.json`. If the generated catalog is identical to the current file, `git commit` exits non-zero with “nothing to commit,” which can mark the workflow failed even though the catalog is already correct. A robust future fix should:
-- Separate “release exists” from “catalog needs updating.”
-- Always calculate and validate the desired catalog entry.
-- Only commit/push when `git diff --quiet -- index.json` indicates a real change.
-- Treat an already-correct catalog as success.
-- Handle concurrent workflow runs/push races safely, without creating duplicate releases or version bumps.
-- Preserve the existing successful build/package behavior and keep the change narrowly scoped.
-
-Do not modify this workflow merely as part of an unrelated feature. Make and test a focused workflow fix when the user asks.
+These safeguards were added while preparing 1.2.9 after multiple overlapping builds raced to upload the same release assets.
 
 ### Release verification checklist
 
